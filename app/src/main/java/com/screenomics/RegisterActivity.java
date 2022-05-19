@@ -44,7 +44,7 @@ public class RegisterActivity extends AppCompatActivity {
     private Button errorButton;
     private Button continueButton;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
-
+// passphrase:  ndscreenomics022
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

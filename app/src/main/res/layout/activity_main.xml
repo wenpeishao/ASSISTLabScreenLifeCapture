@@ -40,8 +40,8 @@
 
     <Button
         android:id="@+id/infoButton"
-        android:layout_width="25dp"
-        android:layout_height="25dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
         android:background="@android:drawable/ic_menu_info_details"
@@ -51,27 +51,27 @@
 
     <Button
         android:id="@+id/logButton"
-        android:layout_width="18dp"
-        android:layout_height="20dp"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
         android:layout_marginTop="18dp"
-        android:layout_marginEnd="54dp"
+        android:layout_marginEnd="20dp"
         android:background="@drawable/list"
         android:drawableTint="#FEFEFE"
         android:textColor="#222222"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/infoButton"
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
         android:id="@+id/devButton"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="88dp"
+        android:layout_marginEnd="20dp"
         android:background="@android:drawable/ic_menu_preferences"
         android:drawableTint="#FEFEFE"
         android:textColor="#222222"
         android:textSize="24sp"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/logButton"
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
@@ -82,7 +82,9 @@
         android:layout_marginBottom="16dp"
         android:text="Upload and Clear Stored Data"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        />
 
     <TextView
         android:id="@+id/imageNumber"
@@ -115,16 +117,34 @@
         android:id="@+id/switchCapture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="182dp"
+        android:thumb="@drawable/switch_thumb"
         android:layout_marginTop="200dp"
-        android:layout_marginEnd="183dp"
+        android:thumbTextPadding="5dp"
         android:backgroundTint="@color/light_sea_green"
         android:buttonTint="@color/sea_green"
         android:textColorHighlight="@color/light_sea_green"
         android:textColorLink="@color/sea_green"
+        android:switchMinWidth="46dp"
+        android:showText="true"
+        android:textOff="Off"
+        android:textOn="On"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
+        android:track="@drawable/switch_track"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/imageView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:srcCompat="@mipmap/ndr_monogram"
+        tools:layout_editor_absoluteX="19dp"
+        tools:layout_editor_absoluteY="40dp"
+        tools:ignore="MissingConstraints"
+        app:layout_constraintTop_toBottomOf="@id/appTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
