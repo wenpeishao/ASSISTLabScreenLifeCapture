@@ -7,7 +7,7 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     defaultConfig {
-        applicationId "com.screenomics"
+        applicationId "edu.nd.psych.screenomics"
         minSdkVersion 26
         targetSdkVersion 32
         versionCode 1
