@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#292F36">
+    android:background="#002b5c">
 
     <Button
         android:id="@+id/errorButton"
@@ -14,9 +14,10 @@
         android:background="@android:drawable/ic_dialog_alert"
         android:drawableTint="#FEFEFE"
         android:textColor="#222222"
-        app:layout_constraintBottom_toTopOf="@+id/activity_main_previewView"
+        app:layout_constraintTop_toTopOf="@id/continueButton"
+        app:layout_constraintStart_toEndOf="@id/continueButton"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent" />
 
     <TextView
         android:id="@+id/appSubtitle2"
@@ -75,12 +76,12 @@
         android:id="@+id/imageView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="61dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginStart="20dp"
         android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         app:layout_constraintBottom_toTopOf="@+id/activity_main_previewView"
         app:layout_constraintStart_toEndOf="@id/appTitle2"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@mipmap/ndr_monogram40" />
+        app:srcCompat="@mipmap/ic_launcher_leaf_round" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
