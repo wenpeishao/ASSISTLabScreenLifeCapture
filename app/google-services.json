@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "355402387475",
+    "project_id": "assist-lab-screen-life",
+    "storage_bucket": "assist-lab-screen-life.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:355402387475:android:9bc34868da8475f78b6fe6",
+        "android_client_info": {
+          "package_name": "edu.nd.psych.screenomics"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "355402387475-ugm50caohmdsbhi3pgftbcc2d52qvj0e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvDdUJmyH3E9i9jqeIxdaZRN4SpAHiWTM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "355402387475-ugm50caohmdsbhi3pgftbcc2d52qvj0e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
