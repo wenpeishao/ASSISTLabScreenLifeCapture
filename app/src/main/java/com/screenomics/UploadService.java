@@ -207,8 +207,16 @@ public class UploadService extends Service {
 
     private Notification setNotification(String title, String content) {
         Intent notificationIntent = new Intent(this, UploadService.class);
+
+        int intentflags;
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
+            intentflags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
+        }else{
+            intentflags = PendingIntent.FLAG_UPDATE_CURRENT;
+        }
+
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this, 0, notificationIntent, 0);
+                PendingIntent.getActivity(this, 0, notificationIntent, intentflags);
         Notification notification =
                 new Notification.Builder(this, "uploading-channel")
                         .setContentTitle(title)

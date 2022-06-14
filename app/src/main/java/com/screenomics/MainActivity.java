@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
                 SenderWorker.class,
-                2,
+                1,
                 TimeUnit.HOURS )
                 .addTag("send_periodic")
                 .setConstraints(constraints)
@@ -185,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
 
                 AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
                 alertDialog.setTitle("Alert");
-                alertDialog.setMessage("Upload image date while not on WiFi?");
+                alertDialog.setMessage("Upload image data while not on WiFi?");
                 alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Upload",
                         new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int which) {
