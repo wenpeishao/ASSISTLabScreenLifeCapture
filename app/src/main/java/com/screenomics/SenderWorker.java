@@ -51,11 +51,12 @@ public class SenderWorker extends Worker {
 
     @Override
     public Result doWork() {
-
+        /*
         final List<Number> hours = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8);
         if (!hours.contains(DateTime.now().getHourOfDay())) {
             return Result.success();
         }
+        */
         System.out.println("Starting upload!");
         Context context = getApplicationContext();
         File f_encrypt = new File(context.getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");

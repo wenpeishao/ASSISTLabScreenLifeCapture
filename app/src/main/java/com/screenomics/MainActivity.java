@@ -89,8 +89,8 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
                 SenderWorker.class,
-                1,
-                TimeUnit.HOURS )
+                30,
+                TimeUnit.MINUTES )
                 .addTag("send_periodic")
                 .setConstraints(constraints)
                 .build();
@@ -329,7 +329,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-        }, 0, 5000);
+        }, 0, 3000);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean isDev = prefs.getBoolean("isDev", false);
