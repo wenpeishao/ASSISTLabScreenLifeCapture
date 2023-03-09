@@ -9,7 +9,9 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -24,6 +26,8 @@ import android.os.IBinder;
 import android.os.Process;
 import android.preference.PreferenceManager;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -52,6 +56,7 @@ public class CaptureService extends Service {
     private static final int DISPLAY_WIDTH = 720;
     private static final int DISPLAY_HEIGHT = 1280;
     private Runnable captureInterval;
+    private Runnable projection;
     private Handler mHandler = new Handler();
     public static byte[] key;
     private static ByteBuffer buffer;
@@ -145,6 +150,7 @@ public class CaptureService extends Service {
     }
 
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     public int onStartCommand(Intent receivedIntent, int flags, int startId) {
         if (receivedIntent != null) {
@@ -171,17 +177,49 @@ public class CaptureService extends Service {
                 .build();
 
         Log.i(TAG, "Starting foreground service");
-        startForeground(1, notification);
-        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
-        mMediaProjectionCallback = new MediaProjectionCallback();
-        mMediaProjection.registerCallback(mMediaProjectionCallback, null);
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        }else{
+            startForeground(1, notification);
+        }
+        // getting crash reports about:
+        //Media projections require a foreground service of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // the supposed solution is to delay the call to getMediaProjection after startForeground
+  /*      projection = new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "Projection");
+                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+                mMediaProjectionCallback = new MediaProjectionCallback();
+                mMediaProjection.registerCallback(mMediaProjectionCallback, null);
 
-        createVirtualDisplay();
-        startCapturing();
+            }
+        };
+        mHandler.postDelayed(projection, 1000);
+*/
+        mHandler.postDelayed( new Runnable(){
+            @Override
+            public void run(){
+                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+                mMediaProjectionCallback = new MediaProjectionCallback();
+                mMediaProjection.registerCallback(mMediaProjectionCallback, null);
+                createVirtualDisplay();
+                startCapturing();
+            }
+
+        }, 200);
+
+        //mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+        //mMediaProjectionCallback = new MediaProjectionCallback();
+        //mMediaProjection.registerCallback(mMediaProjectionCallback, null);
+
+        //createVirtualDisplay();
+        //startCapturing();
         return START_REDELIVER_INTENT;
     }
 
     private void startCapturing() {
+        Log.d(TAG, "Start Capturing");
         try {
             buffer = null;
             capture = true;
@@ -193,6 +231,7 @@ public class CaptureService extends Service {
 
     private void createVirtualDisplay() {
         if (mMediaProjection != null) {
+            //mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, ImageFormat.FLEX_RGB_888, 2);
             mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, PixelFormat.RGBA_8888, 2);
             mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG, DISPLAY_WIDTH, DISPLAY_HEIGHT, screenDensity, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mImageReader.getSurface(), null, null);
             mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), null);
@@ -254,7 +293,12 @@ public class CaptureService extends Service {
                 .setContentText("Please restart the application!")
                 .setContentIntent(pendingIntent)
                 .build();
-        startForeground(1, notification);
+        //startForeground(1, notification);
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        }else{
+            startForeground(1, notification);
+        }
         capture = false;
     }
 

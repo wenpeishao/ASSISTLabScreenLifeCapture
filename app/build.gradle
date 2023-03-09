@@ -10,10 +10,10 @@ android {
     }
     defaultConfig {
         applicationId "edu.nd.psych.screenomics"
-        minSdkVersion 26
+        minSdkVersion 28
         targetSdkVersion 32
-        versionCode 6
-        versionName "1.5"
+        versionCode 8
+        versionName "1.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
