@@ -30,6 +30,11 @@ public class Batch {
     }
 
     public String sendFiles() {
+
+        if(files.size() < 1){
+            return String.valueOf(999);
+        }
+
         MultipartBody.Builder bodyPart = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM);
 
