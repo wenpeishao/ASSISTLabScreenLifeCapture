@@ -12,8 +12,8 @@ android {
         applicationId "edu.nd.psych.screenomics"
         minSdkVersion 28
         targetSdkVersion 32
-        versionCode 8
-        versionName "1.7"
+        versionCode 9
+        versionName "1.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
