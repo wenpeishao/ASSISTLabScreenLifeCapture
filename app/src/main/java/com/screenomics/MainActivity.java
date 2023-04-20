@@ -54,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_MEDIA = 1000;
     private static final int REQUEST_CODE_PHONE = 1001;
     private Switch switchCapture;
+
+    private Switch mobileDataUse;
     private Timer numImageRefreshTimer;
     private Button infoButton;
     private Button logButton;
@@ -65,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView numUploadText;
     private int infoOpenCount = 0;
     private UploadService uploadService;
+
+    public boolean continueWithoutWifi = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
 
         String key = prefs.getString("key", "");
         recordingState = prefs.getBoolean("recordingState", false);
+        continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
         if (key.equals("")) {
             Intent intent = new Intent(this, RegisterActivity.class);
             startActivity(intent);
@@ -123,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
 
         captureState = findViewById(R.id.captureState);
         switchCapture = findViewById(R.id.switchCapture);
+        mobileDataUse = findViewById(R.id.mobileDataSwitch);
         infoButton = findViewById(R.id.infoButton);
         logButton = findViewById(R.id.logButton);
         devButton = findViewById(R.id.devButton);
@@ -131,6 +137,7 @@ public class MainActivity extends AppCompatActivity {
         numUploadText = findViewById(R.id.uploadNumber);
 
         switchCapture.setChecked(recordingState);
+        mobileDataUse.setChecked(continueWithoutWifi);
 
         devButton.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, DevToolsActivity.class);
@@ -151,6 +158,17 @@ public class MainActivity extends AppCompatActivity {
                 stopService();
                 captureState.setText(getResources().getString(R.string.capture_state_off));
                 captureState.setTextColor(getResources().getColor(R.color.white_isabelline));
+            }
+        });
+
+        mobileDataUse.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if(!buttonView.isPressed()){ return ; }
+            if(isChecked){
+                editor.putBoolean("continueWithoutWifi", true);
+                editor.apply();
+            }else{
+                editor.putBoolean("continueWithoutWifi", false);
+                editor.apply();
             }
         });
 

@@ -59,6 +59,12 @@ public class UploadScheduler extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (InternetConnection.checkWiFiConnection(context)) {
             startUpload(context, false);
+        }else{
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
+            if(continueWithoutWifi){
+                startUpload(context, true);
+            }
         }
     }
 

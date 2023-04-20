@@ -113,6 +113,34 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/captureState" />
 
+    <TextView
+        android:id="@+id/mobileDataText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/uploadNumber"
+        app:layout_constraintEnd_toStartOf="@id/mobileDataSwitch"
+        app:layout_constraintStart_toStartOf="parent"
+        android:textAlignment="center"
+        android:textColor="#212121"
+        app:layout_constraintBottom_toTopOf="@id/uploadButton"
+        android:text="Use Mobile Data if no WiFi?"
+        />
+
+    <Switch
+        android:id="@+id/mobileDataSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:showText="true"
+        android:textOff="No"
+
+        android:textOn="Yes"
+        android:thumb="@drawable/switch_thumb"
+        android:track="@drawable/switch_track"
+        app:layout_constraintBottom_toTopOf="@id/uploadButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/mobileDataText"
+        app:layout_constraintTop_toBottomOf="@id/uploadNumber" />
+
     <Switch
         android:id="@+id/switchCapture"
         android:layout_width="wrap_content"
