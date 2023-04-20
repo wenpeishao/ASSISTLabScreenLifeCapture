@@ -3,6 +3,8 @@ package com.screenomics;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 
 public class InternetConnection {
 
@@ -12,9 +14,17 @@ public class InternetConnection {
     public static boolean checkWiFiConnection(Context context) {
         final ConnectivityManager connMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (connMgr != null) {
-            NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
-            if (activeNetworkInfo != null && activeNetworkInfo.getType() == ConnectivityManager.TYPE_WIFI) return true;
+            //NetworkInfo activeNetworkInfo = connMgr.getActiveNetworkInfo();
+            //if (activeNetworkInfo != null && activeNetworkInfo.getType() == ConnectivityManager.TYPE_WIFI) return true;
+            Network[] networks = connMgr.getAllNetworks();
+            for(int i = 0; i < networks.length; i++) {
+                NetworkCapabilities networkCapabilities = connMgr.getNetworkCapabilities(networks[i]);
+                if(networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)){
+                    return true;
+                }
+            }
         }
+
         return false;
     }
     public static boolean isConnected(Context context) {
