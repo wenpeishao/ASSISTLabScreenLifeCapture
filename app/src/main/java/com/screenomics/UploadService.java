@@ -12,8 +12,12 @@ import android.os.Build;
 import android.os.IBinder;
 
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -58,6 +62,8 @@ public class UploadService extends Service {
             return imageCreateTime.isBefore(startDateTime);
         }
     };
+
+
 
     @Override
     public void onCreate() {
