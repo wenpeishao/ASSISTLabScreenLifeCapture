@@ -177,11 +177,12 @@ public class CaptureService extends Service {
                 .build();
 
         Log.i(TAG, "Starting foreground service");
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        /*if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         }else{
             startForeground(1, notification);
-        }
+        }*/
+        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         // getting crash reports about:
         //Media projections require a foreground service of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         // the supposed solution is to delay the call to getMediaProjection after startForeground
@@ -207,7 +208,7 @@ public class CaptureService extends Service {
                 startCapturing();
             }
 
-        }, 200);
+        }, 1000);
 
         //mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
         //mMediaProjectionCallback = new MediaProjectionCallback();
