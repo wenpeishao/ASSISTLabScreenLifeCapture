@@ -111,6 +111,7 @@ public class RegisterActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CAMERA) {
             if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
@@ -132,7 +133,8 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void bindCameraPreview(@NonNull ProcessCameraProvider cameraProvider) {
-        previewView.setPreferredImplementationMode(PreviewView.ImplementationMode.SURFACE_VIEW);
+        //previewView.setPreferredImplementationMode(PreviewView.ImplementationMode.SURFACE_VIEW);
+        previewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
 
         Preview preview = new Preview.Builder()
                 .build();
@@ -141,7 +143,8 @@ public class RegisterActivity extends AppCompatActivity {
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-        preview.setSurfaceProvider(previewView.createSurfaceProvider());
+        //preview.setSurfaceProvider(previewView.createSurfaceProvider());
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
         ImageAnalysis imageAnalysis =
                 new ImageAnalysis.Builder()
