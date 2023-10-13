@@ -28,6 +28,7 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 import androidx.annotation.RequiresApi;
+import androidx.core.app.ServiceCompat;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -174,6 +175,7 @@ public class CaptureService extends Service {
                 .setContentTitle("ScreenLife Capture is running!")
                 .setContentText("If this notification disappears, please re-enable it from the application!")
                 .setContentIntent(pendingIntent)
+                .setOngoing(true)
                 .build();
 
         Log.i(TAG, "Starting foreground service");
@@ -182,7 +184,8 @@ public class CaptureService extends Service {
         }else{
             startForeground(1, notification);
         }*/
-        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+
+        ServiceCompat.startForeground(this,1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         // getting crash reports about:
         //Media projections require a foreground service of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         // the supposed solution is to delay the call to getMediaProjection after startForeground
@@ -208,7 +211,7 @@ public class CaptureService extends Service {
                 startCapturing();
             }
 
-        }, 1000);
+        }, 750);
 
         //mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
         //mMediaProjectionCallback = new MediaProjectionCallback();
