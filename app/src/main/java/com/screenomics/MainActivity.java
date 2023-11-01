@@ -51,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     public MediaProjectionManager mProjectionManager;
     public static int mScreenDensity;
+    private static final int PERMISSION_REQUEST_NOTIFICATIONS = 1;
     private static final int REQUEST_CODE_MEDIA = 1000;
     private static final int REQUEST_CODE_PHONE = 1001;
     private Switch switchCapture;
@@ -97,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
                 TimeUnit.MINUTES )
                 .addTag("send_periodic")
                 .setConstraints(constraints)
+                .setInitialDelay(1, TimeUnit.HOURS)
                 .build();
         WorkManager.getInstance(this)
                 .enqueueUniquePeriodicWork("send_periodic", ExistingPeriodicWorkPolicy.REPLACE, workRequest);
@@ -257,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
             screenCaptureIntent.putExtra("intentData", data);
             screenCaptureIntent.putExtra("screenDensity", mScreenDensity);
             startForegroundService(screenCaptureIntent);
-            startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
+            startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             Toast.makeText(this, "ScreenLife Capture is running!", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
@@ -347,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-        }, 0, 3000);
+        }, 500, 5000);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean isDev = prefs.getBoolean("isDev", false);
