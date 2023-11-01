@@ -22,6 +22,7 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Process;
 import android.preference.PreferenceManager;
@@ -59,6 +60,8 @@ public class CaptureService extends Service {
     private Runnable captureInterval;
     private Runnable projection;
     private Handler mHandler = new Handler();
+    private Handler mBackgroundHandler;
+    private HandlerThread mBackgroundThread;
     public static byte[] key;
     private static ByteBuffer buffer;
     private static int pixelStride;
@@ -68,7 +71,8 @@ public class CaptureService extends Service {
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
         public void onImageAvailable(ImageReader reader) {
-            Image image = reader.acquireLatestImage();
+            mBackgroundHandler.post(new ImageProcessor(reader.acquireLatestImage()));
+            /*Image image = reader.acquireLatestImage();
             if (image != null) {
                 Image.Plane[] planes = image.getPlanes();
                 buffer = planes[0].getBuffer();
@@ -76,6 +80,26 @@ public class CaptureService extends Service {
                 int rowStride = planes[0].getRowStride();
                 rowPadding = rowStride - pixelStride * DISPLAY_WIDTH;
                 image.close();
+            }*/
+        }
+    }
+
+    private class ImageProcessor implements Runnable {
+        private final Image mImage;
+
+        public ImageProcessor(Image image) {
+            mImage = image;
+        }
+
+        @Override
+        public void run() {
+            if (mImage != null) {
+                Image.Plane[] planes = mImage.getPlanes();
+                buffer = planes[0].getBuffer();
+                pixelStride = planes[0].getPixelStride();
+                int rowStride = planes[0].getRowStride();
+                rowPadding = rowStride - pixelStride * DISPLAY_WIDTH;
+                mImage.close();
             }
         }
     }
@@ -119,7 +143,7 @@ public class CaptureService extends Service {
         public void onStop() {
             Log.e(TAG, "I'm stopped");
             try {
-                stopCapturing();
+                //stopCapturing();
                 destroyImageReader();
             } catch (RuntimeException e) {
                 e.printStackTrace();
@@ -131,6 +155,9 @@ public class CaptureService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        mBackgroundThread = new HandlerThread("ImageReaderThread");
+        mBackgroundThread.start();
 
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         mKeyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
@@ -160,6 +187,12 @@ public class CaptureService extends Service {
             screenDensity = receivedIntent.getIntExtra("screenDensity", 0);
         }
 
+        HandlerThread thread = mBackgroundThread;
+        if (thread != null) {
+            mBackgroundHandler = new Handler(thread.getLooper());
+            mHandler = new Handler();
+        }
+
         createNotificationChannel();
         Intent notificationIntent = new Intent(this, MainActivity.class);
         int intentflags;
@@ -170,13 +203,22 @@ public class CaptureService extends Service {
         }
 
         PendingIntent pendingIntent = PendingIntent.getActivity(this,0, notificationIntent, intentflags);
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+        /*Notification notification = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.dna)
                 .setContentTitle("ScreenLife Capture is running!")
                 .setContentText("If this notification disappears, please re-enable it from the application!")
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
-                .build();
+                .build();*/
+        Notification notification = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.dna)
+                    .setContentTitle("ScreenLife Capture is currently enabled")
+                    .setContentText("If this notification disappears, please re-enable it from the application.")
+                    .setContentIntent(pendingIntent)
+                    .build();
+        }
 
         Log.i(TAG, "Starting foreground service");
         /*if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -201,7 +243,7 @@ public class CaptureService extends Service {
         };
         mHandler.postDelayed(projection, 1000);
 */
-        mHandler.postDelayed( new Runnable(){
+        /*mHandler.postDelayed( new Runnable(){
             @Override
             public void run(){
                 mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
@@ -211,14 +253,14 @@ public class CaptureService extends Service {
                 startCapturing();
             }
 
-        }, 750);
+        }, 750);*/
 
-        //mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
-        //mMediaProjectionCallback = new MediaProjectionCallback();
-        //mMediaProjection.registerCallback(mMediaProjectionCallback, null);
+        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+        mMediaProjectionCallback = new MediaProjectionCallback();
+        mMediaProjection.registerCallback(mMediaProjectionCallback, null);
 
-        //createVirtualDisplay();
-        //startCapturing();
+        createVirtualDisplay();
+        startCapturing();
         return START_REDELIVER_INTENT;
     }
 
@@ -227,7 +269,8 @@ public class CaptureService extends Service {
         try {
             buffer = null;
             capture = true;
-            mHandler.post(captureInterval);
+            //mHandler.post(captureInterval);
+            mHandler.postDelayed(captureInterval, 12345, 2000);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -236,15 +279,28 @@ public class CaptureService extends Service {
     private void createVirtualDisplay() {
         if (mMediaProjection != null) {
             //mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, ImageFormat.FLEX_RGB_888, 2);
-            mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, PixelFormat.RGBA_8888, 2);
+            mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, PixelFormat.RGBA_8888, 5);
             mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG, DISPLAY_WIDTH, DISPLAY_HEIGHT, screenDensity, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mImageReader.getSurface(), null, null);
-            mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), null);
+            mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mBackgroundHandler);
         }
     }
 
     private void stopCapturing() {
         capture = false;
-        mHandler.removeCallbacksAndMessages(captureInterval);
+        //mHandler.removeCallbacksAndMessages(captureInterval);
+        mHandler.removeCallbacksAndMessages(null);
+
+        if (mBackgroundThread != null) {
+            mBackgroundThread.quitSafely();
+            try {
+                mBackgroundThread.join();
+                mBackgroundThread = null;
+                mBackgroundHandler = null;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         destroyImageReader();
         destroyVirtualDisplay();
         destroyMediaProjection();
@@ -291,12 +347,15 @@ public class CaptureService extends Service {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this,
                 0, notificationIntent, intentflags);
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle("ScreenLife Capture is NOT Running!")
-                .setContentText("Please restart the application!")
-                .setContentIntent(pendingIntent)
-                .build();
+        Notification notification = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("ScreenLife Capture is NOT Running!")
+                    .setContentText("Please restart the application!")
+                    .setContentIntent(pendingIntent)
+                    .build();
+        }
         //startForeground(1, notification);
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);

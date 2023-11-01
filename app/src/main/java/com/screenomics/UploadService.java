@@ -73,12 +73,15 @@ public class UploadService extends Service {
     public class Sender extends AsyncTask<Batch, Integer, Void> {
         @Override
         protected Void doInBackground(Batch... batches) {
-            String code = batches[0].sendFiles();
-            if (code.equals("201")) {
-                batches[0].deleteFiles();
-                sendSuccessful(batches[0]);
-            } else {
-                sendFailure(code);
+            if(null != batches){
+                String code = batches[0].sendFiles();
+                if (code.equals("201")) {
+                    batches[0].deleteFiles();
+                    sendSuccessful(batches[0]);
+                } else {
+                    sendFailure(code);
+                }
+
             }
             return null;
         }
