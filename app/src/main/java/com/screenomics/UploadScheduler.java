@@ -47,9 +47,10 @@ public class UploadScheduler extends BroadcastReceiver {
         cal.set(Calendar.MINUTE, minute);
 
         float diff =  (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000 / 60;
-        if (diff < 0)
+        if (diff < 0) {
             cal.add(Calendar.DATE, 1);
-            diff =  (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000 / 60;
+            diff = (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000 / 60;
+        }
 
         Logger.i(context, "ALM!" + diff);
         alarm.setRepeating(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), AlarmManager.INTERVAL_DAY, alarmIntent);
@@ -101,6 +102,8 @@ public class UploadScheduler extends BroadcastReceiver {
         intent.putExtra("participant", participant);
         intent.putExtra("key", key);
 
-        context.startForegroundService(intent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent);
+        }
     }
 }

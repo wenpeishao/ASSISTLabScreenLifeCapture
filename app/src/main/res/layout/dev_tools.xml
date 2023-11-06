@@ -78,6 +78,53 @@
             android:text="Set max num images to send" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="43dp"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/testWifiButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Test WiFi Data"
+            />
+        <TextView
+            android:id="@+id/wifiResultText"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/wifiTestEndpointResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="43dp"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/testMobileButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Test Mobile Data"
+            />
+        <TextView
+            android:id="@+id/mobileResultText"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            />
+    </LinearLayout>
+
+
+
+
+
     <Button
         android:id="@+id/disableButton"
         android:layout_width="wrap_content"
