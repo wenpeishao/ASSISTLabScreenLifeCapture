@@ -3,6 +3,7 @@ package com.screenomics;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,7 +33,8 @@ public class Batch {
     public String sendFiles() {
 
         if(files.size() < 1){
-            return String.valueOf(999);
+            //return String.valueOf(999);
+            return "NO FILES";
         }
 
         MultipartBody.Builder bodyPart = new MultipartBody.Builder()
@@ -57,13 +59,18 @@ public class Batch {
             response = client.newCall(request).execute();
             System.out.println("Upload of " + files.size() + " files took " + (System.nanoTime() - startTime)/1000000 + "ms");
         } catch (Exception e) {
+            Log.d("SCREENOMICS_ERROR", e.toString());
             e.printStackTrace();
         }
         int code = response != null ? response.code() : 999;
         if (code >= 400  && code < 500) {
             System.out.println(response.toString());
         }
-        if (response != null) response.close();
+        if (response != null) {
+            response.close();
+        }else{
+            return "NO RESPONSE";
+        }
         return String.valueOf(code);
     }
 

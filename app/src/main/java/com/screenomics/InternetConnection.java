@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.util.Log;
 
 public class InternetConnection {
 
@@ -20,11 +21,29 @@ public class InternetConnection {
             for(int i = 0; i < networks.length; i++) {
                 NetworkCapabilities networkCapabilities = connMgr.getNetworkCapabilities(networks[i]);
                 if(networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)){
+                    Log.d("SCREENOMICS", "Has WiFI");
                     return true;
                 }
             }
         }
+        Log.d("SCREENOMICS", "NO WiFI");
+        return false;
+    }
 
+    public static boolean checkMobileDataConnection(Context context){
+        final ConnectivityManager connMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connMgr != null) {
+
+            Network[] networks = connMgr.getAllNetworks();
+            for(int i = 0; i < networks.length; i++) {
+                NetworkCapabilities networkCapabilities = connMgr.getNetworkCapabilities(networks[i]);
+                if(networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)){
+                    Log.d("SCREENOMICS", "Has Cellular");
+                    return true;
+                }
+            }
+        }
+        Log.d("SCREENOMICS", "NO Cellular");
         return false;
     }
     public static boolean isConnected(Context context) {
