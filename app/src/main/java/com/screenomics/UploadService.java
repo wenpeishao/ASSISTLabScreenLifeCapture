@@ -12,8 +12,12 @@ import android.os.Build;
 import android.os.IBinder;
 
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -59,6 +63,8 @@ public class UploadService extends Service {
         }
     };
 
+
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -67,12 +73,15 @@ public class UploadService extends Service {
     public class Sender extends AsyncTask<Batch, Integer, Void> {
         @Override
         protected Void doInBackground(Batch... batches) {
-            String code = batches[0].sendFiles();
-            if (code.equals("201")) {
-                batches[0].deleteFiles();
-                sendSuccessful(batches[0]);
-            } else {
-                sendFailure(code);
+            if(null != batches){
+                String code = batches[0].sendFiles();
+                if (code.equals("201")) {
+                    batches[0].deleteFiles();
+                    sendSuccessful(batches[0]);
+                } else {
+                    sendFailure(code);
+                }
+
             }
             return null;
         }
