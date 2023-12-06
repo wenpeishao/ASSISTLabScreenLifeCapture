@@ -57,7 +57,12 @@ public class UploadService extends Service {
         @Override
         public boolean accept(File file) {
             List<String> parts = Arrays.asList(file.getName().replace(".png", "").split("_"));
-            Integer[] dP = parts.subList(parts.size() - 6, parts.size()).stream().map(Integer::valueOf).toArray(Integer[]::new);
+            //Integer[] dP = parts.subList(parts.size() - 6, parts.size()).stream().map(Integer::valueOf).toArray(Integer[]::new);
+            Log.d("Parts size", String.valueOf(parts.size()));
+            for(int i = 0; i < parts.size(); i++){
+                Log.d("Parts", parts.get(i));
+            }
+            Integer[] dP = parts.subList(1, 7).stream().map(Integer::valueOf).toArray(Integer[]::new);
             LocalDateTime imageCreateTime = LocalDateTime.of(dP[0], dP[1], dP[2], dP[3], dP[4], dP[5]);
             return imageCreateTime.isBefore(startDateTime);
         }
