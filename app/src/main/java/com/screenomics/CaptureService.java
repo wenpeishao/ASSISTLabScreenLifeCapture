@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
@@ -35,6 +36,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -58,6 +60,8 @@ public class CaptureService extends Service {
     private static final int DISPLAY_WIDTH = 720;
     private static final int DISPLAY_HEIGHT = 1280;
     private Runnable captureInterval;
+    private Runnable insertStartImage;
+    private Runnable insertPauseImage;
     private Runnable projection;
     private Handler mHandler = new Handler();
     private Handler mBackgroundHandler;
@@ -104,7 +108,7 @@ public class CaptureService extends Service {
         }
     }
 
-    private void encryptImage(Bitmap bitmap) {
+    private void encryptImage(Bitmap bitmap, String descriptor) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String hash = prefs.getString("hash", "00000000").substring(0, 8);
         String keyRaw = prefs.getString("key", "");
@@ -112,7 +116,11 @@ public class CaptureService extends Service {
         FileOutputStream fos = null;
         Date date = new Date();
         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-        String screenshot = "/" + hash + "_" + sdf.format(date) + ".png";
+        String screenshot = "/" + hash + "_" + sdf.format(date);// + ".png";
+        if(descriptor != ""){
+            screenshot = screenshot + "_" + descriptor;
+        }
+        screenshot = screenshot + ".png";
 
         try {
             fos = new FileOutputStream(dir + "/images" + screenshot);
@@ -169,10 +177,35 @@ public class CaptureService extends Service {
                 if (buffer != null && !mKeyguardManager.isKeyguardLocked()) {
                     Bitmap bitmap = Bitmap.createBitmap(DISPLAY_WIDTH + rowPadding / pixelStride, DISPLAY_HEIGHT, Bitmap.Config.ARGB_8888);
                     bitmap.copyPixelsFromBuffer(buffer);
-                    encryptImage(bitmap);
+                    encryptImage(bitmap, "image");
                     buffer.rewind();
                 }
                 mHandler.postDelayed(captureInterval, 5000);
+            }
+        };
+
+        // To insert a 'start capture' image
+        insertStartImage = new Runnable() {
+            @Override
+            public void run() {
+                android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
+//                if (!capture) return;
+                InputStream is = getResources().openRawResource(R.raw.resumerecord);
+                Bitmap bitmap = BitmapFactory.decodeStream(is);
+                encryptImage(bitmap, "resume");
+
+            }
+        };
+
+        insertPauseImage = new Runnable() {
+            @Override
+            public void run() {
+                android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
+//                if (!capture) return;
+                InputStream is = getResources().openRawResource(R.raw.pauserecord);
+                Bitmap bitmap = BitmapFactory.decodeStream(is);
+                encryptImage(bitmap, "pause");
+
             }
         };
     }
@@ -243,7 +276,7 @@ public class CaptureService extends Service {
         };
         mHandler.postDelayed(projection, 1000);
 */
-        /*mHandler.postDelayed( new Runnable(){
+        mHandler.postDelayed( new Runnable(){
             @Override
             public void run(){
                 mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
@@ -253,14 +286,14 @@ public class CaptureService extends Service {
                 startCapturing();
             }
 
-        }, 750);*/
+        }, 750);
 
-        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+        /*mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
         mMediaProjectionCallback = new MediaProjectionCallback();
         mMediaProjection.registerCallback(mMediaProjectionCallback, null);
 
         createVirtualDisplay();
-        startCapturing();
+        startCapturing();*/
         return START_REDELIVER_INTENT;
     }
 
@@ -269,6 +302,9 @@ public class CaptureService extends Service {
         try {
             buffer = null;
             capture = true;
+
+            mHandler.post(insertStartImage);
+
             //mHandler.post(captureInterval);
             mHandler.postDelayed(captureInterval, 12345, 2000);
         } catch (Exception e) {
@@ -289,6 +325,7 @@ public class CaptureService extends Service {
         capture = false;
         //mHandler.removeCallbacksAndMessages(captureInterval);
         mHandler.removeCallbacksAndMessages(null);
+        mHandler.post(insertPauseImage);
 
         if (mBackgroundThread != null) {
             mBackgroundThread.quitSafely();

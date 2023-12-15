@@ -32,7 +32,7 @@
         <service
             android:name=".CaptureService"
             android:enabled="true"
-            android:exported="true"
+            android:exported="false"
             android:foregroundServiceType="mediaProjection" />
         <service
             android:name=".UploadService"
@@ -61,7 +61,7 @@
             android:parentActivityName=".MainActivity" />
 
         <receiver android:name=".UploadScheduler"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
