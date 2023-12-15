@@ -1,6 +1,7 @@
 package com.screenomics;
 
 import android.app.AlarmManager;
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -8,6 +9,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -21,7 +23,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -234,6 +239,35 @@ public class MainActivity extends AppCompatActivity {
         File f_encrypt = new File(getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");
         if (!f_image.exists()) f_image.mkdir();
         if (!f_encrypt.exists()) f_encrypt.mkdir();
+
+        ActivityResultLauncher<String[]> locationPermissionRequest =
+                registerForActivityResult(new ActivityResultContracts
+                                .RequestMultiplePermissions(), result -> {
+                            Boolean fineLocationGranted = result.getOrDefault(
+                                    Manifest.permission.ACCESS_FINE_LOCATION, false);
+                            Boolean coarseLocationGranted = result.getOrDefault(
+                                    Manifest.permission.ACCESS_COARSE_LOCATION,false);
+                            if (fineLocationGranted != null && fineLocationGranted) {
+                                // Precise location access granted.
+                            } else if (coarseLocationGranted != null && coarseLocationGranted) {
+                                // Only approximate location access granted.
+                            } else {
+                                // No location access granted.
+                            }
+                        }
+                );
+
+        // Before you perform the actual permission request, check whether your app
+        // already has the permissions, and whether your app needs to show a permission
+        // rationale dialog.
+        int finePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION);
+        int coarsePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION);
+        if(finePermission == PackageManager.PERMISSION_DENIED && coarsePermission == PackageManager.PERMISSION_DENIED){
+            locationPermissionRequest.launch(new String[] {
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
     }
 
     private void startMediaProjectionRequest() {
