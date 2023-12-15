@@ -14,3 +14,6 @@ captures/
 .cxx/
 *.apk
 output.json
+/gradlew
+/app/release
+/.idea/
