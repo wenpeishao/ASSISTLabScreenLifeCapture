@@ -13,7 +13,7 @@ import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
@@ -23,6 +23,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -74,6 +76,8 @@ public class MainActivity extends AppCompatActivity {
     private int infoOpenCount = 0;
     private UploadService uploadService;
 
+    private WorkManager mWorkManager;
+
     public boolean continueWithoutWifi = false;
 
     @Override
@@ -84,8 +88,13 @@ public class MainActivity extends AppCompatActivity {
         FirebaseApp.initializeApp(this);
         FirebaseAnalytics mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
-        WorkManager.getInstance(this).cancelAllWork();
-        ListenableFuture<List<WorkInfo>> send_periodic1 = WorkManager.getInstance(this).getWorkInfosByTag("send_periodic");
+        mWorkManager = WorkManager.getInstance(this);
+
+        //WorkManager.getInstance(this).cancelAllWork();
+        mWorkManager.cancelAllWork();
+
+        //ListenableFuture<List<WorkInfo>> send_periodic1 = WorkManager.getInstance(this).getWorkInfosByTag("send_periodic");
+        ListenableFuture<List<WorkInfo>> send_periodic1 = mWorkManager.getWorkInfosByTag("send_periodic");
         try {
             System.out.println(new StringBuilder().append("SENDPERIODIC: ").append(send_periodic1.get()).toString());
         } catch (ExecutionException e) {
@@ -105,10 +114,12 @@ public class MainActivity extends AppCompatActivity {
                 .setConstraints(constraints)
                 .setInitialDelay(1, TimeUnit.HOURS)
                 .build();
-        WorkManager.getInstance(this)
-                .enqueueUniquePeriodicWork("send_periodic", ExistingPeriodicWorkPolicy.REPLACE, workRequest);
+        //WorkManager.getInstance(this)
+          //      .enqueueUniquePeriodicWork("send_periodic", ExistingPeriodicWorkPolicy.REPLACE, workRequest);
+        mWorkManager.enqueueUniquePeriodicWork("send_periodic", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
 
-        ListenableFuture<List<WorkInfo>> send_periodic = WorkManager.getInstance(this).getWorkInfosByTag("send_periodic");
+        //ListenableFuture<List<WorkInfo>> send_periodic = WorkManager.getInstance(this).getWorkInfosByTag("send_periodic");
+        ListenableFuture<List<WorkInfo>> send_periodic = mWorkManager.getWorkInfosByTag("send_periodic");
         try {
             System.out.println(new StringBuilder().append("SENDPERIODIC: ").append(send_periodic.get()).toString());
         } catch (ExecutionException e) {
@@ -156,15 +167,19 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) {
                 editor.putBoolean("recordingState", true);
                 editor.apply();
+                //startLocationTracking();
                 startMediaProjectionRequest();
                 captureState.setText(getResources().getString(R.string.capture_state_on));
-                captureState.setTextColor(getResources().getColor(R.color.light_sea_green));
+                //captureState.setTextColor(getResources().getColor(R.color.light_sea_green));
+                captureState.setTextColor(ContextCompat.getColor(this, R.color.light_sea_green));
             } else {
                 editor.putBoolean("recordingState", false);
                 editor.commit();
+                //stopLocationTracking();
                 stopService();
                 captureState.setText(getResources().getString(R.string.capture_state_off));
-                captureState.setTextColor(getResources().getColor(R.color.white_isabelline));
+                //captureState.setTextColor(getResources().getColor(R.color.white_isabelline));
+                captureState.setTextColor(ContextCompat.getColor(this, R.color.white_isabelline));
             }
         });
 
@@ -272,10 +287,55 @@ public class MainActivity extends AppCompatActivity {
 
     private void startMediaProjectionRequest() {
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        startActivityForResult(mProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA);
+        //startActivityForResult(mProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA);
+        mMediaProjectionLauncher.launch(mProjectionManager.createScreenCaptureIntent());
     }
 
-    @Override
+    /*private void startLocationTracking(){
+        Constraints constraints = new Constraints.Builder()
+                .setRequiresBatteryNotLow(true)
+                .build();
+        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
+                LocationWorker.class,
+                2,
+                TimeUnit.MINUTES )
+                .addTag(LocationWorker.Companion.getWorkName())
+                .setConstraints(constraints)
+                .setInitialDelay(1, TimeUnit.MINUTES)
+                .build();
+
+        mWorkManager.enqueueUniquePeriodicWork(LocationWorker.Companion.getWorkName(),
+                ExistingPeriodicWorkPolicy.KEEP, workRequest);
+    }
+
+    private void stopLocationTracking(){
+        mWorkManager.cancelAllWorkByTag(LocationWorker.Companion.getWorkName());
+    }*/
+
+    ActivityResultLauncher<Intent> mMediaProjectionLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    if(result.getResultCode() != RESULT_OK){
+                        switchCapture.setChecked(false);
+                        Toast.makeText(getApplicationContext(), "Permission denied", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    try {
+                        Intent screenCaptureIntent = new Intent(MainActivity.this, CaptureService.class);
+                        screenCaptureIntent.putExtra("resultCode", result.getResultCode());
+                        screenCaptureIntent.putExtra("intentData", result.getData());
+                        screenCaptureIntent.putExtra("screenDensity", mScreenDensity);
+                        startForegroundService(screenCaptureIntent);
+                        startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        Toast.makeText(MainActivity.this, "ScreenLife Capture is running!", Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+    /*@Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_CODE_MEDIA) {
@@ -298,7 +358,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
+    }*/
 
     private void createAlarm(){
         final UploadScheduler alarm = new UploadScheduler(this);
@@ -341,6 +401,19 @@ public class MainActivity extends AppCompatActivity {
         public void onServiceDisconnected(ComponentName componentName) { }
     };
 
+    private final ServiceConnection locationServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            LocationService.LocalBinder localBinder = (LocationService.LocalBinder) iBinder;
+            LocationService locationService = localBinder.getService();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+
+        }
+    };
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -354,6 +427,9 @@ public class MainActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, UploadService.class);
         bindService(intent, uploaderServiceConnection, 0);
+
+        Intent locationIntent = new Intent(this, LocationService.class);
+        bindService(locationIntent, locationServiceConnection, 0);
 
         numImageRefreshTimer = new Timer();
         numImageRefreshTimer.schedule(new TimerTask() {

@@ -42,7 +42,12 @@
             android:name=".UploadService"
             android:enabled="true"
             android:exported="true" />
-
+        <service
+            android:name=".LocationService"
+            android:foregroundServiceType="location"
+            android:enabled="true"
+            android:exported="true"
+        />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
