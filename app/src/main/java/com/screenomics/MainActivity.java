@@ -76,6 +76,8 @@ public class MainActivity extends AppCompatActivity {
     private int infoOpenCount = 0;
     private UploadService uploadService;
 
+    private LocationService locationService;
+
     private WorkManager mWorkManager;
 
     public boolean continueWithoutWifi = false;
@@ -167,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
             if (isChecked) {
                 editor.putBoolean("recordingState", true);
                 editor.apply();
-                //startLocationTracking();
+                startLocationService();
                 startMediaProjectionRequest();
                 captureState.setText(getResources().getString(R.string.capture_state_on));
                 //captureState.setTextColor(getResources().getColor(R.color.light_sea_green));
@@ -175,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 editor.putBoolean("recordingState", false);
                 editor.commit();
-                //stopLocationTracking();
+                stopLocationService();
                 stopService();
                 captureState.setText(getResources().getString(R.string.capture_state_off));
                 //captureState.setTextColor(getResources().getColor(R.color.white_isabelline));
@@ -369,6 +371,16 @@ public class MainActivity extends AppCompatActivity {
         stopService(serviceIntent);
     }
 
+    private void startLocationService(){
+        Intent intent = new Intent(this, LocationService.class);
+        startService(intent);
+    }
+
+    private void stopLocationService(){
+        Intent intent = new Intent(this, LocationService.class);
+        stopService(intent);
+    }
+
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
@@ -405,7 +417,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             LocationService.LocalBinder localBinder = (LocationService.LocalBinder) iBinder;
-            LocationService locationService = localBinder.getService();
+            locationService = localBinder.getService();
         }
 
         @Override
@@ -478,6 +490,7 @@ public class MainActivity extends AppCompatActivity {
         numImageRefreshTimer.cancel();
         unbindService(serviceConnection);
         unbindService(uploaderServiceConnection);
+        unbindService(locationServiceConnection);
     }
 }
 
