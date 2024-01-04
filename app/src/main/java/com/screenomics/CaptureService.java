@@ -131,8 +131,8 @@ public class CaptureService extends Service {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            File f = new File(dir+"/images"+screenshot);
-            if (f.delete()) Log.e(TAG, "file deleted: " + dir +"/images" + screenshot);
+            File f = new File(dir + "/images" + screenshot);
+            if (f.delete()) Log.e(TAG, "file deleted: " + dir + "/images" + screenshot);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } finally {
