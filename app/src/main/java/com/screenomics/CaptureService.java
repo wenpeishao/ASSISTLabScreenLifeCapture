@@ -1,11 +1,14 @@
 package com.screenomics;
 
+import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -42,6 +45,10 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 
 
 public class CaptureService extends Service {
@@ -71,6 +78,8 @@ public class CaptureService extends Service {
     private static int pixelStride;
     private static int rowPadding;
     private static boolean capture = false;
+
+    private ActivityManager mActivityManager;
 
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
@@ -169,6 +178,8 @@ public class CaptureService extends Service {
 
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         mKeyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+
+        mActivityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         captureInterval = new Runnable() {
             @Override
             public void run() {
@@ -179,6 +190,46 @@ public class CaptureService extends Service {
                     bitmap.copyPixelsFromBuffer(buffer);
                     encryptImage(bitmap, "image");
                     buffer.rewind();
+
+                    /*List<ActivityManager.RecentTaskInfo> mRecentTasks = mActivityManager.getRecentTasks(1, ActivityManager.RECENT_WITH_EXCLUDED);
+                    for(int i = 0; i < mRecentTasks.size(); i++){
+                        Log.d("SCREENOMICS Tasks", mRecentTasks.get(i).topActivity.getPackageName());
+                    }*/
+                    /*List<ActivityManager.RunningAppProcessInfo> mRunningProcesses = mActivityManager.getRunningAppProcesses();
+
+                    for(int i = 0; i < mRunningProcesses.size(); i++){
+                        Log.d("SCREENOMICS Running Processes", mRunningProcesses.get(i).processName);
+                    }*/
+                    String topPackageName = "";
+                    try{
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
+                            UsageStatsManager mUsageStatsManager = (UsageStatsManager) getSystemService(Service.USAGE_STATS_SERVICE);
+                            List<UsageStats> stats =
+                                    mUsageStatsManager.queryUsageStats(
+                                            UsageStatsManager.INTERVAL_DAILY,
+                                            System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1),
+                                            System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1));
+                            if (stats != null) {
+                                Log.d("SCREENOMICS", "STATS NOT NULL " + stats.size());
+                                SortedMap<Long, UsageStats> mySortedMap = new TreeMap<>();
+                                for (UsageStats usageStats : stats) {
+                                    //Log.d("USAGE STATS", usageStats.toString());
+                                    mySortedMap.put(usageStats.getLastTimeUsed(), usageStats);
+                                }
+                                if (!mySortedMap.isEmpty()) {
+                                    topPackageName = mySortedMap.get(mySortedMap.lastKey()).getPackageName();
+                                }
+                            } else {
+                                Log.d("SCREENOMICS", "STATs NULL");
+                                topPackageName = mActivityManager.getRunningAppProcesses().get(0).processName;
+                            }
+                        }else{
+                            Log.d("SCREENOMICS", "SDK VERSION TOO LOW");
+                        }
+                    }catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    Log.d("SCREENOMICS Proc", "Top Package Name: " + topPackageName);
                 }
                 mHandler.postDelayed(captureInterval, 5000);
             }

@@ -14,6 +14,8 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import androidx.preference.PreferenceManager;
+
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
@@ -274,6 +276,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                 );
 
+
         // Before you perform the actual permission request, check whether your app
         // already has the permissions, and whether your app needs to show a permission
         // rationale dialog.
@@ -284,6 +287,11 @@ public class MainActivity extends AppCompatActivity {
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
             });
+        }
+        int statsPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.PACKAGE_USAGE_STATS);
+        if(statsPermission == PackageManager.PERMISSION_DENIED){
+            Log.d("SCREENOMICS", "Requesting stats permission");
+            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         }
     }
 
