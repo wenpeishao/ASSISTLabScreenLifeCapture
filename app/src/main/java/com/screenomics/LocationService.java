@@ -233,31 +233,5 @@ public class LocationService extends Service {
     }
 
 
-    /*
-    private void encryptImage(Bitmap bitmap, String descriptor) {
 
-
-        try {
-            fos = new FileOutputStream(dir + "/images" + screenshot);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, fos);
-            try {
-                Encryptor.encryptFile(key, screenshot, dir + "/images" + screenshot, dir + "/encrypt" + screenshot);
-                Log.i(TAG, "Encryption done");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            File f = new File(dir+"/images"+screenshot);
-            if (f.delete()) Log.e(TAG, "file deleted: " + dir +"/images" + screenshot);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (fos != null) fos.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            bitmap.recycle();
-        }
-    }
-     */
 }

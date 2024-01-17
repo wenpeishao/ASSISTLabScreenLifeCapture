@@ -35,9 +35,14 @@ import android.util.Log;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ServiceCompat;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -115,6 +120,24 @@ public class CaptureService extends Service {
                 mImage.close();
             }
         }
+    }
+
+    private void encryptTextFile(String filename){
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        String keyRaw = prefs.getString("key", "");
+        byte[] key = Converter.hexStringToByteArray(keyRaw);
+
+        String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
+
+        try{
+            Encryptor.encryptFile(key, filename, dir + "/images" + filename, dir + "/encrypt" + filename);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        File f = new File(dir + "/images" + filename);
+        if (f.delete()) Log.e(TAG, "file deleted: " + dir +"/images" + filename);
+
     }
 
     private void encryptImage(Bitmap bitmap, String descriptor) {
@@ -200,7 +223,10 @@ public class CaptureService extends Service {
                     for(int i = 0; i < mRunningProcesses.size(); i++){
                         Log.d("SCREENOMICS Running Processes", mRunningProcesses.get(i).processName);
                     }*/
+
+                    // get and write the foreground app if we found one
                     String topPackageName = "";
+                    //long foregroundTime = 0;
                     try{
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
                             UsageStatsManager mUsageStatsManager = (UsageStatsManager) getSystemService(Service.USAGE_STATS_SERVICE);
@@ -218,6 +244,7 @@ public class CaptureService extends Service {
                                 }
                                 if (!mySortedMap.isEmpty()) {
                                     topPackageName = mySortedMap.get(mySortedMap.lastKey()).getPackageName();
+                                    //foregroundTime = mySortedMap.get(mySortedMap.lastKey()).getTotalTimeVisible();
                                 }
                             } else {
                                 Log.d("SCREENOMICS", "STATs NULL");
@@ -230,6 +257,42 @@ public class CaptureService extends Service {
                         e.printStackTrace();
                     }
                     Log.d("SCREENOMICS Proc", "Top Package Name: " + topPackageName);
+                    //Log.d("SCREENOMICS Proc", "Foreground Time: " + foregroundTime);
+
+                    if(topPackageName != ""){
+                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+                        String hash = prefs.getString("hash", "00000000").substring(0, 8);
+                        Date date = new Date();
+                        String filename = "/" + hash + "_" + sdf.format(date) + "_foreground.json";
+                        String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
+
+
+                        JSONObject jsonObject = new JSONObject();
+                        try {
+                            DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+
+                            jsonObject.put("foreground", topPackageName);
+                            jsonObject.put("timestamp", formatter.format(date));
+
+                            String jsonString = jsonObject.toString();
+
+                            Log.d(TAG, "Writing file contents: " + jsonString);
+
+                            File locationFile = new File(dir + "/images", filename);
+
+                            FileWriter writer = new FileWriter(locationFile);
+                            BufferedWriter bufferedWriter = new BufferedWriter(writer);
+                            bufferedWriter.write(jsonString);
+                            bufferedWriter.close();
+
+                            encryptTextFile(filename);
+
+                        } catch (JSONException e) {
+                            throw new RuntimeException(e);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                 }
                 mHandler.postDelayed(captureInterval, 5000);
             }

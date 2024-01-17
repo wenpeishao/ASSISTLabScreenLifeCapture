@@ -74,6 +74,30 @@
         app:layout_constraintEnd_toStartOf="@id/logButton"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/firstTimeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#1A1A1A"
+        android:textAlignment="center"
+        android:text="First time running click below and enable permissions"
+        app:layout_constraintBottom_toTopOf="@id/settingsButton"
+        app:layout_constraintTop_toBottomOf="@id/mobileDataText"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        />
+
+    <Button
+        android:id="@+id/settingsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/firstTimeText"
+        app:layout_constraintBottom_toTopOf="@id/uploadButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:text="Usage Stats Settings"
+        />
+
     <Button
         android:id="@+id/uploadButton"
         android:layout_width="wrap_content"
