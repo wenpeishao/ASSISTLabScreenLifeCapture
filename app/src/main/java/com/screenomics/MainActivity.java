@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView numImagesText;
     private Button uploadButton;
     private TextView numUploadText;
+    private Button statsSettingsButton;
     private int infoOpenCount = 0;
     private UploadService uploadService;
 
@@ -157,6 +158,7 @@ public class MainActivity extends AppCompatActivity {
         numImagesText = findViewById(R.id.imageNumber);
         uploadButton = findViewById(R.id.uploadButton);
         numUploadText = findViewById(R.id.uploadNumber);
+        statsSettingsButton = findViewById(R.id.settingsButton);
 
         switchCapture.setChecked(recordingState);
         mobileDataUse.setChecked(continueWithoutWifi);
@@ -164,6 +166,10 @@ public class MainActivity extends AppCompatActivity {
         devButton.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, DevToolsActivity.class);
             MainActivity.this.startActivity(intent);
+        });
+
+        statsSettingsButton.setOnClickListener(view -> {
+            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         });
 
         switchCapture.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -288,11 +294,11 @@ public class MainActivity extends AppCompatActivity {
                     Manifest.permission.ACCESS_COARSE_LOCATION
             });
         }
-        int statsPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.PACKAGE_USAGE_STATS);
+        /*int statsPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.PACKAGE_USAGE_STATS);
         if(statsPermission == PackageManager.PERMISSION_DENIED){
             Log.d("SCREENOMICS", "Requesting stats permission");
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-        }
+        }*/
     }
 
     private void startMediaProjectionRequest() {
