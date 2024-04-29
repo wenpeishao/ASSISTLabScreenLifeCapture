@@ -9,6 +9,7 @@ local.properties
 /.idea/assetWizardSettings.xml
 .DS_Store
 build/
+release/
 captures/
 .externalNativeBuild
 .cxx/
@@ -16,4 +17,4 @@ captures/
 output.json
 /gradlew
 /app/release
-/.idea/
+.idea/
