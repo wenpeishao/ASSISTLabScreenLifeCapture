@@ -2,6 +2,14 @@
 
 This repo contains the Android Application used in the ScreenLife Capture study. The application allows participants to record and upload screenshots taken every X number of seconds. The general layout of the code is explained below.
 
+### Features added by Univeristy of Notre Dame, Center for Research Computing
+
+1.  GPS coordinate logging:  When the app is actively recording the screen images, it will also write JSON files of the user's location as \<hash\>_\<datetime\>_gps.json.  
+
+2.  Foreground app info:  The app will use the OS process list to find the top application running, and record it to a JSON file, \<hash\>_\<datetime\>_foreground.json.  
+
+
+
 ### Activities
 
 | Activity Name    | Purpose                                                      |
@@ -14,8 +22,9 @@ This repo contains the Android Application used in the ScreenLife Capture study.
 
 | Service Name   | Purpose                                                      |
 | -------------- | ------------------------------------------------------------ |
-| CaptureService | Responsible for capturing screenshots every X number of seconds. Runs continously throughout the duration of the study. |
+| CaptureService | Responsible for capturing screenshots and foreground app name every X number of seconds. Runs continously throughout the duration of the study. |
 | UploadService  | Responsible for uploading of screenshots to the cloud functions. Is triggered at certain times by `UploadScheduler` |
+| LocationService| Responsible for capturing GPS coordinates every 10 seconds, recording them in JSON files.  |
 
 ### Other Files
 
