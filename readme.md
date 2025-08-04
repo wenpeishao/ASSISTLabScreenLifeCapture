@@ -2,11 +2,15 @@
 
 This repo contains the Android Application used in the ScreenLife Capture study. The application allows participants to record and upload screenshots taken every X number of seconds. The general layout of the code is explained below.
 
-### Features added by Univeristy of Notre Dame, Center for Research Computing
+### Mindpulse Endpoint Integration (Updated)
 
-1.  GPS coordinate logging:  When the app is actively recording the screen images, it will also write JSON files of the user's location as \<hash\>_\<datetime\>_gps.json.  
+This version of the application has been updated to integrate with the Mindpulse Endpoint POC server. The following changes have been made:
 
-2.  Foreground app info:  The app will use the OS process list to find the top application running, and record it to a JSON file, \<hash\>_\<datetime\>_foreground.json.  
+*   **Server URL Update**: The application now sends data to new URL.
+
+*   **Server Response Logging**: The application now logs the server's response after each upload attempt, which can be viewed by clicking the "Logs" button in the app.
+
+**Note**: Currently experiencing server error 500 responses. Issue appears to be server-side.
 
 
 

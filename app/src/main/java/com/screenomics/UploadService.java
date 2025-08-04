@@ -56,15 +56,7 @@ public class UploadService extends Service {
     private final FileFilter onlyFilesBeforeStart = new FileFilter() {
         @Override
         public boolean accept(File file) {
-            List<String> parts = Arrays.asList(file.getName().replace(".png", "").split("_"));
-            //Integer[] dP = parts.subList(parts.size() - 6, parts.size()).stream().map(Integer::valueOf).toArray(Integer[]::new);
-            /*Log.d("Parts size", String.valueOf(parts.size()));
-            for(int i = 0; i < parts.size(); i++){
-                Log.d("Parts", parts.get(i));
-            }*/
-            Integer[] dP = parts.subList(1, 7).stream().map(Integer::valueOf).toArray(Integer[]::new);
-            LocalDateTime imageCreateTime = LocalDateTime.of(dP[0], dP[1], dP[2], dP[3], dP[4], dP[5]);
-            return imageCreateTime.isBefore(startDateTime);
+            return true;
         }
     };
 
@@ -78,39 +70,66 @@ public class UploadService extends Service {
     public class Sender extends AsyncTask<Batch, Integer, Void> {
         @Override
         protected Void doInBackground(Batch... batches) {
-            if(null != batches){
-                String code = batches[0].sendFiles();
+            if(null != batches && batches.length > 0){
+                Log.d("SCREENOMICS_UPLOAD", "Sender AsyncTask executing for batch with " + batches[0].size() + " files");
+                String[] response = batches[0].sendFiles();
+                String code = response[0];
+                String body = response[1];
+                Log.d("SCREENOMICS_UPLOAD", "Sender AsyncTask received response code: " + code);
                 if (code.equals("201")) {
                     batches[0].deleteFiles();
-                    sendSuccessful(batches[0]);
+                    sendSuccessful(batches[0], body);
                 } else {
-                    sendFailure(code);
+                    sendFailure(code, body);
                 }
-
+            } else {
+                Log.e("SCREENOMICS_UPLOAD", "Sender AsyncTask called with null or empty batches");
             }
             return null;
         }
     }
 
     private void sendNextBatch() {
-        if (batches.isEmpty()) return;
-        if (numBatchesSending >= numBatchesToSend) return;
-        if (!continueWithoutWifi && !InternetConnection.checkWiFiConnection(this)) sendFailure("NOWIFI");
+        Log.d("SCREENOMICS_UPLOAD", "sendNextBatch called - Batches remaining: " + batches.size());
+        if (batches.isEmpty()) {
+            Log.d("SCREENOMICS_UPLOAD", "No more batches to send");
+            return;
+        }
+        if (numBatchesSending >= numBatchesToSend) {
+            Log.d("SCREENOMICS_UPLOAD", "Max concurrent batches reached: " + numBatchesSending + "/" + numBatchesToSend);
+            return;
+        }
+        if (!continueWithoutWifi && !InternetConnection.checkWiFiConnection(this)) {
+            Log.e("SCREENOMICS_UPLOAD", "WiFi check failed, aborting upload");
+            sendFailure("NOWIFI", "No WiFi connection");
+            return;
+        }
         Batch batch = batches.remove(0);
         numBatchesSending ++;
-        System.out.println("SENDING NEXT BATCH, numBatchesSending " + numBatchesSending + " out of " + numBatchesToSend + " with " + batch.size() + " images");
+        Log.i("SCREENOMICS_UPLOAD", "Sending batch " + numBatchesSending + "/" + numBatchesToSend + " with " + batch.size() + " files");
+        Log.d("SCREENOMICS_UPLOAD", "Files to upload: " + numToUpload + ", Uploaded: " + numUploaded);
         new Sender().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, batch);
     }
 
-    private void sendSuccessful(Batch batch) {
+    private void sendSuccessful(Batch batch, String responseBody) {
         numBatchesSending --;
         numUploaded += batch.size();
         numToUpload -= batch.size();
+        
+        Log.i("SCREENOMICS_UPLOAD", "Batch upload successful!");
+        Log.i("SCREENOMICS_UPLOAD", "Progress: " + numUploaded + "/" + numTotal + " uploaded");
+        Log.d("SCREENOMICS_UPLOAD", "Remaining to upload: " + numToUpload);
+        Log.d("SCREENOMICS_UPLOAD", "Active batches: " + numBatchesSending);
+
+        Logger.i(getApplicationContext(), "Upload success for " + batch.size() + " files. Server msg: " + responseBody);
+        
+        // Update notification with progress
+        setNotification("Uploading..", "Progress: " + numUploaded + "/" + numTotal);
 
         if (numBatchesToSend < Constants.MAX_BATCHES_TO_SEND) numBatchesToSend ++;
         for (int i = 0; i < numBatchesToSend; i++) { sendNextBatch(); }
         if (numToUpload <= 0) {
-            System.out.println("Sending Successful!");
+            Log.i("SCREENOMICS_UPLOAD", "All files uploaded successfully!");
             status = Status.SUCCESS;
             reset();
             stopForeground(true);
@@ -118,10 +137,13 @@ public class UploadService extends Service {
         }
     }
 
-    private void sendFailure(String code) {
+    private void sendFailure(String code, String responseBody) {
+        Log.e("SCREENOMICS_UPLOAD", "sendFailure called - Code: " + code + ", Body: " + responseBody);
+        Log.e("SCREENOMICS_UPLOAD", "Upload progress at failure: " + numUploaded + "/" + numTotal);
         status = Status.FAILED;
         errorCode = code;
-        setNotification("Failure in Uploading", "Error code: " + errorCode);
+        Logger.e(getApplicationContext(), "Upload failed with code " + code + ". Server msg: " + responseBody);
+        setNotification("Failure in Uploading", "Error code: " + errorCode + " (" + numUploaded + "/" + numTotal + ")");
         reset();
     }
 
@@ -131,7 +153,8 @@ public class UploadService extends Service {
         lastActivityTime = dateTime.format(formatter);
         uploading = false;
         numBatchesToSend = 0;
-        numTotal = 0;
+        numBatchesSending = 0;
+        Log.d("SCREENOMICS_UPLOAD", "Service reset - Final stats: Uploaded " + numUploaded + "/" + numTotal);
     }
 
     @Override
@@ -154,10 +177,15 @@ public class UploadService extends Service {
 
         String dirPath = intent.getStringExtra("dirPath");
         continueWithoutWifi = intent.getBooleanExtra("continueWithoutWifi", false);
+        
+        Log.i("SCREENOMICS_UPLOAD", "UploadService started - Directory: " + dirPath);
+        Log.d("SCREENOMICS_UPLOAD", "Continue without WiFi: " + continueWithoutWifi);
 
         startDateTime = LocalDateTime.now();
         File dir = new File(dirPath);
         File[] files = dir.listFiles(onlyFilesBeforeStart);
+        
+        Log.d("SCREENOMICS_UPLOAD", "Found " + (files != null ? files.length : 0) + " files in directory");
 
 
         if (files == null || files.length == 0) {
@@ -175,26 +203,35 @@ public class UploadService extends Service {
         numToUpload = 0;
 
         // Split the files into batches.
+        Log.d("SCREENOMICS_UPLOAD", "Creating batches - Batch size: " + batchSize + ", Max to send: " + maxToSend);
         while (fileList.size() > 0 && (maxToSend == 0 || numToUpload < maxToSend)) {
             List<File> nextBatch = new LinkedList<>();
             for (int i = 0; i < batchSize; i++) {
                 if (fileList.peek() == null) { break; }
                 if (maxToSend != 0 && numToUpload == maxToSend) { break; }
+                File file = fileList.remove();
+                Log.d("SCREENOMICS_UPLOAD", "Adding to batch: " + file.getName());
                 numToUpload ++;
-                nextBatch.add(fileList.remove());
+                nextBatch.add(file);
             }
             Batch batch = new Batch(nextBatch, client);
             batches.add(batch);
+            Log.d("SCREENOMICS_UPLOAD", "Created batch " + batches.size() + " with " + nextBatch.size() + " files");
         }
 
         numTotal = numToUpload;
         numUploaded = 0;
         numBatchesToSend = 1;
-        System.out.println("GOT " + batches.size() + " BATCHES WITH " + numToUpload + "IMAGES TO UPLOAD" );
-        System.out.println("TOTAL OF " + fileList.size() + " IMAGES THO");
+        Log.i("SCREENOMICS_UPLOAD", "Upload initialized:");
+        Log.i("SCREENOMICS_UPLOAD", "  - Total batches: " + batches.size());
+        Log.i("SCREENOMICS_UPLOAD", "  - Total files to upload: " + numToUpload);
+        Log.i("SCREENOMICS_UPLOAD", "  - Files remaining in directory: " + fileList.size());
 
         status = Status.SENDING;
+        uploading = true;
         // Send the first batch.
+        Log.i("SCREENOMICS_UPLOAD", "Starting upload process...");
+        setNotification("Uploading..", "Starting: 0/" + numTotal);
         sendNextBatch();
 
         return super.onStartCommand(intent, flags, startId);
