@@ -148,24 +148,38 @@ public class CaptureService extends Service {
         FileOutputStream fos = null;
         Date date = new Date();
         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-        String screenshot = "/" + hash + "_" + sdf.format(date);// + ".png";
-        if(descriptor != ""){
-            screenshot = screenshot + "_" + descriptor;
-        }
-        screenshot = screenshot + ".png";
+        long timestamp = date.getTime();
+        String screenshot = "/" + hash + "_" + timestamp + "_screenshot.png";
+        
+        Log.d("SCREENOMICS_CAPTURE", "Creating screenshot: " + screenshot);
+        Log.d("SCREENOMICS_CAPTURE", "Hash: " + hash + ", Timestamp: " + timestamp);
 
         try {
-            fos = new FileOutputStream(dir + "/images" + screenshot);
+            String imagePath = dir + "/images" + screenshot;
+            String encryptPath = dir + "/encrypt" + screenshot;
+            
+            Log.d("SCREENOMICS_CAPTURE", "Saving image to: " + imagePath);
+            fos = new FileOutputStream(imagePath);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 70, fos);
+            Log.d("SCREENOMICS_CAPTURE", "Image saved, size: " + new File(imagePath).length() + " bytes");
+            
             try {
-                Encryptor.encryptFile(key, screenshot, dir + "/images" + screenshot, dir + "/encrypt" + screenshot);
-                Log.i(TAG, "Encryption done");
+                Log.d("SCREENOMICS_CAPTURE", "Encrypting file to: " + encryptPath);
+                Encryptor.encryptFile(key, screenshot, imagePath, encryptPath);
+                Log.i("SCREENOMICS_CAPTURE", "Encryption completed successfully");
+                Log.d("SCREENOMICS_CAPTURE", "Encrypted file size: " + new File(encryptPath).length() + " bytes");
             } catch (Exception e) {
+                Log.e("SCREENOMICS_CAPTURE", "Encryption failed: " + e.getMessage());
                 e.printStackTrace();
             }
-            File f = new File(dir + "/images" + screenshot);
-            if (f.delete()) Log.e(TAG, "file deleted: " + dir + "/images" + screenshot);
+            File f = new File(imagePath);
+            if (f.delete()) {
+                Log.d("SCREENOMICS_CAPTURE", "Original image deleted: " + imagePath);
+            } else {
+                Log.w("SCREENOMICS_CAPTURE", "Failed to delete original image: " + imagePath);
+            }
         } catch (FileNotFoundException e) {
+            Log.e("SCREENOMICS_CAPTURE", "Failed to save image: " + e.getMessage());
             e.printStackTrace();
         } finally {
             try {
@@ -174,6 +188,7 @@ public class CaptureService extends Service {
                 e.printStackTrace();
             }
             bitmap.recycle();
+            Log.d("SCREENOMICS_CAPTURE", "Bitmap recycled");
         }
     }
 
@@ -263,8 +278,12 @@ public class CaptureService extends Service {
                         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
                         String hash = prefs.getString("hash", "00000000").substring(0, 8);
                         Date date = new Date();
-                        String filename = "/" + hash + "_" + sdf.format(date) + "_foreground.json";
+                        long timestamp = date.getTime();
+                        String filename = "/" + hash + "_" + timestamp + "_metadata.json";
                         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
+                        
+                        Log.d("SCREENOMICS_CAPTURE", "Creating metadata file: " + filename);
+                        Log.d("SCREENOMICS_CAPTURE", "Foreground app: " + topPackageName);
 
 
                         JSONObject jsonObject = new JSONObject();
