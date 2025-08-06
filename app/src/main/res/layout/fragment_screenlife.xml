@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white_isabelline"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="8dp">
+
+    <!-- Screen Capture Toggle -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Screen Capture"
+        android:textColor="#1A1A1A"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <Switch
+        android:id="@+id/switchCapture"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:thumb="@drawable/switch_thumb"
+        android:thumbTextPadding="4dp"
+        android:backgroundTint="@color/light_sea_green"
+        android:buttonTint="@color/sea_green"
+        android:textColorHighlight="@color/light_sea_green"
+        android:textColorLink="@color/sea_green"
+        android:switchMinWidth="36dp"
+        android:showText="true"
+        android:textOff="Off"
+        android:textOn="On"
+        android:track="@drawable/switch_track" />
+
+    <TextView
+        android:id="@+id/captureState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/capture_state_off"
+        android:textColor="#181818"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+        <!-- Image Stats -->
+        <TextView
+            android:id="@+id/imageNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Number of Images: 0"
+            android:textColor="#1A1A1A"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/uploadNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Not Uploading"
+            android:textAlignment="center"
+            android:textColor="#212121"
+            android:textSize="12sp" />
+
+        <!-- Mobile Data Settings -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Use Mobile Data if no WiFi?"
+                android:textColor="#212121"
+                android:textSize="12sp"
+                android:layout_marginEnd="8dp" />
+
+            <Switch
+                android:id="@+id/mobileDataSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:showText="true"
+                android:textOff="No"
+                android:textOn="Yes"
+                android:thumb="@drawable/switch_thumb"
+                android:track="@drawable/switch_track" />
+
+        </LinearLayout>
+
+        <!-- Auto Upload Settings -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Auto upload every 12 hours?"
+                android:textColor="#212121"
+                android:textSize="12sp"
+                android:layout_marginEnd="8dp" />
+
+            <Switch
+                android:id="@+id/autoUploadSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:showText="true"
+                android:textOff="No"
+                android:textOn="Yes"
+                android:thumb="@drawable/switch_thumb"
+                android:track="@drawable/switch_track" />
+
+        </LinearLayout>
+
+        <!-- Settings and Upload Buttons -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:textColor="#1A1A1A"
+            android:textAlignment="center"
+            android:textSize="10sp"
+            android:text="First time running click below and enable permissions" />
+
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="180dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="12dp"
+            android:textSize="12sp"
+            android:text="Usage Stats Settings" />
+
+        <Button
+            android:id="@+id/uploadButton"
+            android:layout_width="220dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:textSize="12sp"
+            android:text="Upload and Clear All Files" />
+
+    </LinearLayout>
