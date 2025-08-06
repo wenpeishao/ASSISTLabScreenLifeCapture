@@ -72,12 +72,21 @@ public class MindPulseFragment extends Fragment {
         
         initializeViews(view);
         setupReminderSpinner();
-        setupVideoRecording();
+        // Video recording temporarily disabled - to be re-enabled in future version
+        // setupVideoRecording();
         
+        // Camera permissions temporarily disabled
+        /*
         if (checkPermissions()) {
             initializeCamera();
         } else {
             requestPermissions();
+        }
+        */
+        
+        // Display message about video recording being disabled
+        if (cameraStatus != null) {
+            cameraStatus.setText("Video recording will be available in a future version");
         }
     }
 
@@ -88,6 +97,15 @@ public class MindPulseFragment extends Fragment {
         cameraStatus = view.findViewById(R.id.cameraStatus);
         recordingIndicator = view.findViewById(R.id.recordingIndicator);
         reminderSpinner = view.findViewById(R.id.reminderSpinner);
+        
+        // Hide video recording UI elements
+        if (cameraPreview != null) cameraPreview.setVisibility(View.GONE);
+        if (videoRecordButton != null) {
+            videoRecordButton.setVisibility(View.GONE);
+            videoRecordButton.setEnabled(false);
+        }
+        if (recordingStatus != null) recordingStatus.setVisibility(View.GONE);
+        if (recordingIndicator != null) recordingIndicator.setVisibility(View.GONE);
     }
 
     private boolean checkPermissions() {

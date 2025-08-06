@@ -100,14 +100,15 @@ public class RegisterActivity extends AppCompatActivity {
 
 
     private void requestCamera() {
+        // Camera functionality temporarily disabled - to be re-enabled in future version
+        // QR code scanning will be available in a future update
+        Toast.makeText(this, "QR code scanning will be available in a future version", Toast.LENGTH_LONG).show();
+        return;
+        
+        /*
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            /*if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-                ActivityCompat.requestPermissions(RegisterActivity.this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST_CAMERA);
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST_CAMERA);
-            }*/
             // provision exclusively for API 33
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
@@ -124,6 +125,7 @@ public class RegisterActivity extends AppCompatActivity {
                 }
             }
         }
+        */
     }
 
     @Override

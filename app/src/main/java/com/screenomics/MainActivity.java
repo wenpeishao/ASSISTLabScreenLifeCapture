@@ -360,6 +360,8 @@ public class MainActivity extends AppCompatActivity {
         boolean isDev = prefs.getBoolean("isDev", false);
         if (!isDev) devButton.setVisibility(View.GONE);
 
+        // MindPulse tab switching disabled - feature temporarily unavailable
+        /*
         Intent launchIntent = getIntent();
         if (launchIntent != null && launchIntent.getBooleanExtra("start_video_recording", false)) {
             // Switch to MindPulse tab and start recording
@@ -367,6 +369,7 @@ public class MainActivity extends AppCompatActivity {
                 viewPager.setCurrentItem(1); // Switch to MindPulse tab
             }
         }
+        */
     }
 
     // This needs to be here so that onResume is called at the correct time.

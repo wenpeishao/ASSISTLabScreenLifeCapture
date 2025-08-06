@@ -14,14 +14,14 @@ This repository contains the Android application for the ScreenLife Capture rese
 
 - **Automated Screenshot Capture**: Takes screenshots at configurable intervals
 - **Location Tracking**: Records GPS coordinates every 10 seconds
-- **Video Recording**: Captures video data using camera services
+- **Video Recording**: *Currently disabled - will be re-enabled in future version*
 - **Secure Data Upload**: Encrypted data transmission to research servers
 - **Background Operation**: Runs continuously as a foreground service
 - **Batch Processing**: Groups data for efficient network transmission
 
 ### Current Server Integration
 
-The application integrates with the Mindpulse Endpoint server:
+The application integrates with the research server:
 - **Server Response Logging**: Logs all server responses for debugging
 - **Batch Upload**: Sends data in configurable batch sizes (default: 10 items)
 
@@ -45,7 +45,7 @@ The application integrates with the Mindpulse Endpoint server:
 |---------|------|---------|
 | `CaptureService` | Foreground (MediaProjection) | Screenshot capture and app tracking |
 | `LocationService` | Foreground (Location) | GPS coordinate recording |
-| `VideoCaptureService` | Foreground (Camera) | Video recording functionality |
+| `VideoCaptureService` | Foreground (Camera) | *Disabled - to be re-enabled in future version* |
 | `UploadService` | Background | Batch data upload to server |
 
 ### Core Components
@@ -67,7 +67,7 @@ The application integrates with the Mindpulse Endpoint server:
 | Fragment | Purpose |
 |----------|---------|
 | `ScreenLifeFragment` | Screenshot capture controls and status |
-| `MindPulseFragment` | Research study interface and information |
+| `MindPulseFragment` | *Currently hidden - to be re-enabled in future version* |
 
 
 
@@ -97,10 +97,10 @@ The application requires extensive permissions for data collection:
 
 #### Data Collection Permissions
 - `FOREGROUND_SERVICE_MEDIA_PROJECTION` - Screenshot capture
-- `FOREGROUND_SERVICE_CAMERA` - Video recording
+- ~~`FOREGROUND_SERVICE_CAMERA`~~ - *Video recording (disabled)*
 - `ACCESS_FINE_LOCATION` / `ACCESS_BACKGROUND_LOCATION` - GPS tracking
 - `PACKAGE_USAGE_STATS` - App usage tracking
-- `CAMERA` / `RECORD_AUDIO` - Video/audio capture
+- ~~`CAMERA` / `RECORD_AUDIO`~~ - *Video/audio capture (disabled)*
 
 #### Storage & System
 - `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` - File operations
@@ -135,4 +135,16 @@ The application requires extensive permissions for data collection:
 - **No Backup**: Backup is disabled (`android:allowBackup="false"`)
 - **Secure Storage**: Uses Android's secure storage mechanisms
 - **Network Security**: HTTPS-only communication with research servers
+
+## Version Notes
+
+### v1.14 Changes
+- Video recording functionality temporarily disabled
+- Camera permissions commented out in manifest
+- QR code scanning disabled in RegisterActivity
+- MindPulse tab hidden from main interface
+- Only ScreenLife tab is currently visible
+- ViewPager adapter modified to show single tab
+- Video UI elements and MindPulse features hidden
+- These features will be re-enabled in a future version
 
