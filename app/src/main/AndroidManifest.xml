@@ -26,6 +26,7 @@
 
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:allowBackup="false"
@@ -51,6 +52,11 @@
             android:enabled="true"
             android:exported="true"
         />
+        <service
+            android:name=".VideoCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
@@ -73,6 +79,13 @@
             android:parentActivityName=".MainActivity" />
 
         <receiver android:name=".UploadScheduler"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        
+        <receiver android:name=".VideoReminderScheduler"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

@@ -39,6 +39,7 @@ public class UploadService extends Service {
 
     public int numToUpload = 0;
     public int numUploaded = 0;
+    public int numFailed = 0;
     public int numTotal = 0;
     public boolean uploading = false;
     public Status status = Status.IDLE;
@@ -80,7 +81,7 @@ public class UploadService extends Service {
                     batches[0].deleteFiles();
                     sendSuccessful(batches[0], body);
                 } else {
-                    sendFailure(code, body);
+                    sendBatchFailure(batches[0], code, body);
                 }
             } else {
                 Log.e("SCREENOMICS_UPLOAD", "Sender AsyncTask called with null or empty batches");
@@ -131,6 +132,42 @@ public class UploadService extends Service {
         if (numToUpload <= 0) {
             Log.i("SCREENOMICS_UPLOAD", "All files uploaded successfully!");
             status = Status.SUCCESS;
+            reset();
+            stopForeground(true);
+            stopSelf();
+        }
+    }
+
+    private void sendBatchFailure(Batch failedBatch, String code, String responseBody) {
+        numBatchesSending--;
+        numFailed += failedBatch.size();
+        numToUpload -= failedBatch.size();
+        
+        Log.w("SCREENOMICS_UPLOAD", "Batch upload failed - Code: " + code + ", Files: " + failedBatch.size());
+        Log.w("SCREENOMICS_UPLOAD", "Progress: Uploaded=" + numUploaded + ", Failed=" + numFailed + ", Remaining=" + numToUpload);
+        
+        Logger.e(getApplicationContext(), "Batch upload failed (" + failedBatch.size() + " files) with code " + code + ". Server msg: " + responseBody);
+        
+        // Update notification with current progress
+        setNotification("Uploading..", "Progress: " + numUploaded + "/" + numTotal + " (" + numFailed + " failed)");
+        
+        // Continue with next batches
+        for (int i = 0; i < numBatchesToSend; i++) { 
+            sendNextBatch(); 
+        }
+        
+        // Check if all batches are processed (successful or failed)  
+        if (numToUpload <= 0) {
+            if (numFailed > 0) {
+                Log.w("SCREENOMICS_UPLOAD", "Upload completed with failures: " + numUploaded + " successful, " + numFailed + " failed");
+                status = Status.FAILED;
+                errorCode = "PARTIAL_FAILURE";
+                setNotification("Upload Completed with Errors", numUploaded + " uploaded, " + numFailed + " failed");
+            } else {
+                Log.i("SCREENOMICS_UPLOAD", "All files uploaded successfully!");
+                status = Status.SUCCESS;
+                setNotification("Upload Complete", "All " + numUploaded + " files uploaded!");
+            }
             reset();
             stopForeground(true);
             stopSelf();
@@ -221,6 +258,7 @@ public class UploadService extends Service {
 
         numTotal = numToUpload;
         numUploaded = 0;
+        numFailed = 0;
         numBatchesToSend = 1;
         Log.i("SCREENOMICS_UPLOAD", "Upload initialized:");
         Log.i("SCREENOMICS_UPLOAD", "  - Total batches: " + batches.size());
