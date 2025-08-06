@@ -1,60 +1,150 @@
-# ScreenLife Capture Android App
+# ASSIST Lab ScreenLife Capture Android App
 
-This repo contains the Android Application used in the ScreenLife Capture study. The application allows participants to record and upload screenshots taken every X number of seconds. The general layout of the code is explained below.
+This repository contains the Android application for the ScreenLife Capture research study conducted by the ASSIST Lab. The application enables participants to automatically record screenshots, capture location data, and record video at specified intervals for behavioral research purposes.
 
-### Mindpulse Endpoint Integration (Updated)
+## Project Overview
 
-This version of the application has been updated to integrate with the Mindpulse Endpoint POC server. The following changes have been made:
+**App Name:** ASSIST Lab ScreenLife  
+**Package ID:** edu.nd.psych.screenomics  
+**Current Version:** 1.14 (Build 16)  
+**Target SDK:** 33  
+**Min SDK:** 29  
 
-*   **Server URL Update**: The application now sends data to new URL.
+### Key Features
 
-*   **Server Response Logging**: The application now logs the server's response after each upload attempt, which can be viewed by clicking the "Logs" button in the app.
+- **Automated Screenshot Capture**: Takes screenshots at configurable intervals
+- **Location Tracking**: Records GPS coordinates every 10 seconds
+- **Video Recording**: *Currently disabled - will be re-enabled in future version*
+- **Secure Data Upload**: Encrypted data transmission to research servers
+- **Background Operation**: Runs continuously as a foreground service
+- **Batch Processing**: Groups data for efficient network transmission
+
+### Current Server Integration
+
+The application integrates with the research server:
+- **Server Response Logging**: Logs all server responses for debugging
+- **Batch Upload**: Sends data in configurable batch sizes (default: 10 items)
 
 **Note**: Currently experiencing server error 500 responses. Issue appears to be server-side.
 
 
 
-### Activities
+## Architecture Overview
 
-| Activity Name    | Purpose                                                      |
-| ---------------- | ------------------------------------------------------------ |
-| RegisterActivity | Handles registration for new users.                          |
-| MainActivity     | Contains the main interface of the app, allowing participants to start/stop the screen capture. |
-| DevToolsActivity | Contains tools to tweak how the app works, including the number of images to send per batch, the number of batches to send in parallel etc. |
+### Core Activities
 
-### Service
+| Activity | Purpose | Features |
+|----------|---------|----------|
+| `MainActivity` | Primary user interface with tabbed layout | Start/stop capture, view status, access logs |
+| `RegisterActivity` | User registration and key generation | Participant name entry, encryption key creation |
+| `DevToolsActivity` | Configuration and debugging tools | Batch size adjustment, parallel upload settings |
 
-| Service Name   | Purpose                                                      |
-| -------------- | ------------------------------------------------------------ |
-| CaptureService | Responsible for capturing screenshots and foreground app name every X number of seconds. Runs continously throughout the duration of the study. |
-| UploadService  | Responsible for uploading of screenshots to the cloud functions. Is triggered at certain times by `UploadScheduler` |
-| LocationService| Responsible for capturing GPS coordinates every 10 seconds, recording them in JSON files.  |
+### Background Services
 
-### Other Files
+| Service | Type | Purpose |
+|---------|------|---------|
+| `CaptureService` | Foreground (MediaProjection) | Screenshot capture and app tracking |
+| `LocationService` | Foreground (Location) | GPS coordinate recording |
+| `VideoCaptureService` | Foreground (Camera) | *Disabled - to be re-enabled in future version* |
+| `UploadService` | Background | Batch data upload to server |
 
-| File Name          | Purpose                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| Constants          | Contains the constants used throughout the application.      |
-| Batch              | Contains a "batch" of files, used by `UploadService`.        |
-| Encryptor          | Used during the encryption process by `CaptureService`.      |
-| InfoDialog         | The dialog that is shown when the "information" button is pressed on the main activity. |
-| InternetConnection | A set of functions to check if the device is connected to the internet, and through what type of connection (WiFi vs mobile data). |
-| Logger             | Utility functions to save logs to SharedPreferences.         |
-| UploadScheduler    | Schedules the `UploadService` at certain times a day.        |
+### Core Components
+
+| Component | Purpose |
+|-----------|---------|
+| `Constants` | Application-wide configuration constants |
+| `Batch` | Data structure for grouped file uploads |
+| `Encryptor` | Data encryption and security utilities |
+| `Logger` | SharedPreferences-based logging system |
+| `UploadScheduler` | Automated upload timing and scheduling |
+| `SenderWorker` | Background work manager for data transmission |
+| `LocationWorker` | Kotlin-based location tracking worker |
+| `InternetConnection` | Network connectivity and type detection |
+| `Converter` | Data format conversion utilities |
+
+### User Interface Fragments
+
+| Fragment | Purpose |
+|----------|---------|
+| `ScreenLifeFragment` | Screenshot capture controls and status |
+| `MindPulseFragment` | *Currently hidden - to be re-enabled in future version* |
 
 
 
-## Constants
+## Configuration
 
-Most app-related constants are located in the `Constants` file. The constants are explained below.
+### Application Constants
 
-| Constant Name       | Explanation                                   |
-| ------------------- | --------------------------------------------- |
-| REGISTER_ADDRESS    | The address of the "register" cloud function. |
-| UPLOAD_ADDRESS      | The address of the "upload" cloud function.   |
-| COUNT_ADDRESS       | The address of the "count" cloud function.    |
-| BATCH_SIZE_DEFAULT  | TODO                                          |
-| MAX_TO_SEND_DEFAULT | TODO                                          |
-| MAX_BATCHES_TO_SEND | TODO                                          |
-| REQ_TIMEOUT         | TODO                                          |
+The `Constants.java` file contains key configuration parameters:
+
+| Constant | Value | Purpose |
+|----------|--------|---------|
+| `UPLOAD_ADDRESS` | *Configured in Constants.java* | Primary data upload endpoint |
+| `BATCH_SIZE_DEFAULT` | `10` | Number of items per upload batch |
+| `MAX_TO_SEND_DEFAULT` | `0` | Maximum items to send (0 = no limit) |
+| `MAX_BATCHES_TO_SEND` | `10` | Maximum concurrent batch uploads |
+| `REQ_TIMEOUT` | `1200` | Network request timeout (seconds) |
+
+### Permissions
+
+The application requires extensive permissions for data collection:
+
+#### Core Permissions
+- `INTERNET` - Network data upload
+- `WAKE_LOCK` - Prevent device sleep during capture
+- `FOREGROUND_SERVICE` - Background operation
+- `SYSTEM_ALERT_WINDOW` - Overlay interface elements
+
+#### Data Collection Permissions
+- `FOREGROUND_SERVICE_MEDIA_PROJECTION` - Screenshot capture
+- ~~`FOREGROUND_SERVICE_CAMERA`~~ - *Video recording (disabled)*
+- `ACCESS_FINE_LOCATION` / `ACCESS_BACKGROUND_LOCATION` - GPS tracking
+- `PACKAGE_USAGE_STATS` - App usage tracking
+- ~~`CAMERA` / `RECORD_AUDIO`~~ - *Video/audio capture (disabled)*
+
+#### Storage & System
+- `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` - File operations
+- `RECEIVE_BOOT_COMPLETED` - Auto-start after device reboot
+- `SCHEDULE_EXACT_ALARM` - Precise timing for data collection
+
+## Development Setup
+
+### Requirements
+- Android Studio
+- Gradle 7.0+
+- Android SDK 29+
+- Google Services (Firebase integration)
+
+### Build Configuration
+- **Compile SDK:** 34
+- **Target SDK:** 33
+- **Min SDK:** 29
+- **Java Version:** 1.8
+- **Kotlin Support:** Enabled
+
+### Key Dependencies
+- AndroidX libraries
+- Google Play Services
+- Firebase Crashlytics
+- Joda Time for date/time operations
+- WorkManager for background tasks
+
+## Security & Privacy
+
+- **Data Encryption**: All captured data is encrypted using the `Encryptor` class
+- **No Backup**: Backup is disabled (`android:allowBackup="false"`)
+- **Secure Storage**: Uses Android's secure storage mechanisms
+- **Network Security**: HTTPS-only communication with research servers
+
+## Version Notes
+
+### v1.14 Changes
+- Video recording functionality temporarily disabled
+- Camera permissions commented out in manifest
+- QR code scanning disabled in RegisterActivity
+- MindPulse tab hidden from main interface
+- Only ScreenLife tab is currently visible
+- ViewPager adapter modified to show single tab
+- Video UI elements and MindPulse features hidden
+- These features will be re-enabled in a future version
 

@@ -21,7 +21,6 @@ import android.util.Log;
 
 import android.view.View;
 import android.widget.Button;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,9 +28,14 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
+import androidx.viewpager2.widget.ViewPager2;
+
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
@@ -63,21 +67,16 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_NOTIFICATIONS = 1;
     private static final int REQUEST_CODE_MEDIA = 1000;
     private static final int REQUEST_CODE_PHONE = 1001;
-    private Switch switchCapture;
-
-    private Switch mobileDataUse;
-    private Timer numImageRefreshTimer;
+    
     private Button infoButton;
     private Button logButton;
     private Button devButton;
-    private TextView captureState;
     private Boolean recordingState;
-    private TextView numImagesText;
-    private Button uploadButton;
-    private TextView numUploadText;
-    private Button statsSettingsButton;
     private int infoOpenCount = 0;
-    private UploadService uploadService;
+    
+    private TabLayout tabLayout;
+    private ViewPager2 viewPager;
+    private MainPagerAdapter pagerAdapter;
 
     private LocationService locationService;
 
@@ -149,59 +148,19 @@ public class MainActivity extends AppCompatActivity {
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         mScreenDensity = metrics.densityDpi;
 
-        captureState = findViewById(R.id.captureState);
-        switchCapture = findViewById(R.id.switchCapture);
-        mobileDataUse = findViewById(R.id.mobileDataSwitch);
+        // Initialize UI components
         infoButton = findViewById(R.id.infoButton);
         logButton = findViewById(R.id.logButton);
         devButton = findViewById(R.id.devButton);
-        numImagesText = findViewById(R.id.imageNumber);
-        uploadButton = findViewById(R.id.uploadButton);
-        numUploadText = findViewById(R.id.uploadNumber);
-        statsSettingsButton = findViewById(R.id.settingsButton);
+        tabLayout = findViewById(R.id.tabLayout);
+        viewPager = findViewById(R.id.viewPager);
 
-        switchCapture.setChecked(recordingState);
-        mobileDataUse.setChecked(continueWithoutWifi);
+        // Setup tabs
+        setupTabs();
 
         devButton.setOnClickListener(view -> {
             Intent intent = new Intent(MainActivity.this, DevToolsActivity.class);
             MainActivity.this.startActivity(intent);
-        });
-
-        statsSettingsButton.setOnClickListener(view -> {
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-        });
-
-        switchCapture.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!buttonView.isPressed()) { return; }
-            if (isChecked) {
-                editor.putBoolean("recordingState", true);
-                editor.apply();
-                startLocationService();
-                startMediaProjectionRequest();
-                captureState.setText(getResources().getString(R.string.capture_state_on));
-                //captureState.setTextColor(getResources().getColor(R.color.light_sea_green));
-                captureState.setTextColor(ContextCompat.getColor(this, R.color.light_sea_green));
-            } else {
-                editor.putBoolean("recordingState", false);
-                editor.commit();
-                stopLocationService();
-                stopService();
-                captureState.setText(getResources().getString(R.string.capture_state_off));
-                //captureState.setTextColor(getResources().getColor(R.color.white_isabelline));
-                captureState.setTextColor(ContextCompat.getColor(this, R.color.white_isabelline));
-            }
-        });
-
-        mobileDataUse.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if(!buttonView.isPressed()){ return ; }
-            if(isChecked){
-                editor.putBoolean("continueWithoutWifi", true);
-                editor.apply();
-            }else{
-                editor.putBoolean("continueWithoutWifi", false);
-                editor.apply();
-            }
         });
 
         infoButton.setOnClickListener(v -> {
@@ -230,40 +189,18 @@ public class MainActivity extends AppCompatActivity {
         });
 
 
-        uploadButton.setOnClickListener(v -> {
-            if (!InternetConnection.checkWiFiConnection(getApplicationContext())) {
-
-                AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
-                alertDialog.setTitle("Alert");
-                alertDialog.setMessage("Upload image data while not on WiFi?");
-                alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Upload",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                                UploadScheduler.startUpload(getApplicationContext(), true);
-                                Toast.makeText(getApplicationContext(), "Uploading...", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        });
-                alertDialog.show();
-
-            } else {
-
-                UploadScheduler.startUpload(getApplicationContext(), false);
-                Toast.makeText(getApplicationContext(), "Uploading...", Toast.LENGTH_SHORT).show();
-            }
-        });
 
 
         File f_image = new File(getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "images");
         File f_encrypt = new File(getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");
         if (!f_image.exists()) f_image.mkdir();
         if (!f_encrypt.exists()) f_encrypt.mkdir();
+
+        // Setup automatic upload every 12 hours if enabled (default: enabled)
+        boolean autoUploadEnabled = prefs.getBoolean("autoUploadEnabled", true);
+        if (autoUploadEnabled) {
+            UploadScheduler.setupAutoUpload(this);
+        }
 
         ActivityResultLauncher<String[]> locationPermissionRequest =
                 registerForActivityResult(new ActivityResultContracts
@@ -301,11 +238,6 @@ public class MainActivity extends AppCompatActivity {
         }*/
     }
 
-    private void startMediaProjectionRequest() {
-        mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        //startActivityForResult(mProjectionManager.createScreenCaptureIntent(), REQUEST_CODE_MEDIA);
-        mMediaProjectionLauncher.launch(mProjectionManager.createScreenCaptureIntent());
-    }
 
     /*private void startLocationTracking(){
         Constraints constraints = new Constraints.Builder()
@@ -333,7 +265,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if(result.getResultCode() != RESULT_OK){
-                        switchCapture.setChecked(false);
                         Toast.makeText(getApplicationContext(), "Permission denied", Toast.LENGTH_SHORT).show();
                         return;
                     }
@@ -359,7 +290,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         if (resultCode != RESULT_OK) {
-            switchCapture.setChecked(false);
             Toast.makeText(getApplicationContext(), "Permission denied", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -380,32 +310,12 @@ public class MainActivity extends AppCompatActivity {
         final UploadScheduler alarm = new UploadScheduler(this);
     }
 
-    private void stopService() {
-        Intent serviceIntent = new Intent(this, CaptureService.class);
-        stopService(serviceIntent);
-    }
-
-    private void startLocationService(){
-        Intent intent = new Intent(this, LocationService.class);
-        startService(intent);
-    }
-
-    private void stopLocationService(){
-        Intent intent = new Intent(this, LocationService.class);
-        stopService(intent);
-    }
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            CaptureService.LocalBinder localBinder = (CaptureService.LocalBinder) iBinder;
-            CaptureService captureService = localBinder.getService();
-            if (captureService.isCapturing()) {
-                captureState.setText(getResources().getString(R.string.capture_state_on));
-                captureState.setTextColor(getResources().getColor(R.color.light_sea_green));
-                switchCapture.setEnabled(true);
-                switchCapture.setChecked(true);
-            }}
+            // Service connection maintained for fragments to use if needed
+        }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) { }
@@ -414,13 +324,7 @@ public class MainActivity extends AppCompatActivity {
     private final ServiceConnection uploaderServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            UploadService.LocalBinder localBinder = (UploadService.LocalBinder) iBinder;
-            uploadService = localBinder.getService();
-            if (uploadService.status == UploadService.Status.SENDING) {
-                numUploadText.setText("Uploading: " + uploadService.numUploaded + "/" + uploadService.numTotal);
-            } else {
-                numUploadText.setText(uploadService.status.toString());
-            }
+            // No UI updates needed in main activity anymore
         }
 
         @Override
@@ -435,9 +339,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-
-        }
+        public void onServiceDisconnected(ComponentName componentName) { }
     };
 
     @Override
@@ -445,9 +347,6 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         infoOpenCount = 0;
 
-        captureState.setText(getResources().getString(R.string.capture_state_off));
-        switchCapture.setEnabled(true);
-        switchCapture.setChecked(false);
         Intent screenCaptureIntent = new Intent(this, CaptureService.class);
         bindService(screenCaptureIntent, serviceConnection, 0);
 
@@ -457,39 +356,20 @@ public class MainActivity extends AppCompatActivity {
         Intent locationIntent = new Intent(this, LocationService.class);
         bindService(locationIntent, locationServiceConnection, 0);
 
-        numImageRefreshTimer = new Timer();
-        numImageRefreshTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        File outputDir = new File(getApplicationContext().getExternalFilesDir(null).getAbsolutePath()+File.separator+"encrypt");
-                        File[] files = outputDir.listFiles();
-                        if (files == null) return;
-                        int numImages = files.length;
-                        float bytesTotal = Stream.of(files).mapToLong(File::length).sum();
-                        numImagesText.setText(String.format("Number of images: %d (%sMB)", numImages, String.format("%.2f", bytesTotal / 1024 / 1024)));
-                        Log.i(TAG, "Image Number:" + numImages);
-                        if (uploadService != null) {
-                            if (uploadService.status == UploadService.Status.SENDING) {
-                                numUploadText.setText("Uploading: " + uploadService.numUploaded + "/" + uploadService.numTotal);
-                            } else if (uploadService.status == UploadService.Status.SUCCESS) {
-                                numUploadText.setText("Successfully uploaded " + uploadService.numUploaded + " images at " + uploadService.lastActivityTime);
-                            } else if (uploadService.status == UploadService.Status.FAILED) {
-                                numUploadText.setText("Failed uploading " + uploadService.numToUpload + " images at " + uploadService.lastActivityTime + " with code " + uploadService.errorCode);
-                            } else {
-                                numUploadText.setText(uploadService.status.toString());
-                            }
-                        }
-                    }
-                });
-            }
-        }, 500, 5000);
-
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         boolean isDev = prefs.getBoolean("isDev", false);
         if (!isDev) devButton.setVisibility(View.GONE);
+
+        // MindPulse tab switching disabled - feature temporarily unavailable
+        /*
+        Intent launchIntent = getIntent();
+        if (launchIntent != null && launchIntent.getBooleanExtra("start_video_recording", false)) {
+            // Switch to MindPulse tab and start recording
+            if (viewPager != null) {
+                viewPager.setCurrentItem(1); // Switch to MindPulse tab
+            }
+        }
+        */
     }
 
     // This needs to be here so that onResume is called at the correct time.
@@ -501,10 +381,40 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        numImageRefreshTimer.cancel();
         unbindService(serviceConnection);
         unbindService(uploaderServiceConnection);
         unbindService(locationServiceConnection);
     }
+
+    private void setupTabs() {
+        pagerAdapter = new MainPagerAdapter(this);
+        viewPager.setAdapter(pagerAdapter);
+        
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            tab.setText(pagerAdapter.getTabTitle(position));
+        }).attach();
+    }
+
+    // Public methods for fragments to call
+    public void startLocationService(){
+        Intent intent = new Intent(this, LocationService.class);
+        startService(intent);
+    }
+
+    public void stopLocationService(){
+        Intent intent = new Intent(this, LocationService.class);
+        stopService(intent);
+    }
+
+    public void startMediaProjectionRequest() {
+        mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        mMediaProjectionLauncher.launch(mProjectionManager.createScreenCaptureIntent());
+    }
+
+    public void stopCaptureService() {
+        Intent serviceIntent = new Intent(this, CaptureService.class);
+        stopService(serviceIntent);
+    }
+
 }
 
