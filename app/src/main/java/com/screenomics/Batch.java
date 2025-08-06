@@ -21,7 +21,8 @@ import okhttp3.Response;
 
 public class Batch {
 
-    private final MediaType PNG = MediaType.parse("image/*");
+    private final MediaType IMAGE_TYPE = MediaType.parse("image/*");
+    private final MediaType VIDEO_TYPE = MediaType.parse("video/mp4");
     private final List<File> files;
     private final OkHttpClient client;
 
@@ -46,7 +47,10 @@ public class Batch {
                 String fileName = files.get(i).getName();
                 long fileSize = files.get(i).length();
                 Log.d("SCREENOMICS_UPLOAD", "Adding file" + (i + 1) + ": " + fileName + " (" + fileSize + " bytes)");
-                bodyPart.addFormDataPart("file" + (i + 1), fileName, RequestBody.create(PNG, files.get(i)));
+                
+                // Use appropriate MediaType based on file extension
+                MediaType mediaType = fileName.toLowerCase().endsWith(".mp4") ? VIDEO_TYPE : IMAGE_TYPE;
+                bodyPart.addFormDataPart("file" + (i + 1), fileName, RequestBody.create(mediaType, files.get(i)));
             } else {
                 Log.w("SCREENOMICS_UPLOAD", "Skipping non-file: " + files.get(i).getAbsolutePath());
             }

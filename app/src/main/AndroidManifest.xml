@@ -24,8 +24,10 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <uses-feature android:name="android.hardware.camera.any" />
+    <!-- Video recording temporarily disabled - to be re-enabled in future version -->
+    <!-- <uses-feature android:name="android.hardware.camera.any" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" /> -->
 
     <application
         android:allowBackup="false"
@@ -51,6 +53,12 @@
             android:enabled="true"
             android:exported="true"
         />
+        <!-- Video recording service temporarily disabled - to be re-enabled in future version -->
+        <!-- <service
+            android:name=".VideoCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera" /> -->
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
@@ -78,6 +86,14 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        
+        <!-- Video reminder scheduler temporarily disabled - to be re-enabled in future version -->
+        <!-- <receiver android:name=".VideoReminderScheduler"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver> -->
     </application>
 
 </manifest>
