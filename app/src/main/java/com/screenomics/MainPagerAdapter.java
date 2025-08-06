@@ -14,6 +14,9 @@ public class MainPagerAdapter extends FragmentStateAdapter {
     @NonNull
     @Override
     public Fragment createFragment(int position) {
+        // MindPulse tab temporarily disabled - only show ScreenLife
+        return new ScreenLifeFragment();
+        /*
         switch (position) {
             case 0:
                 return new ScreenLifeFragment();
@@ -22,14 +25,19 @@ public class MainPagerAdapter extends FragmentStateAdapter {
             default:
                 return new ScreenLifeFragment();
         }
+        */
     }
 
     @Override
     public int getItemCount() {
-        return 2; // Two tabs: ScreenLife and MindPulse
+        return 1; // Only ScreenLife tab (MindPulse temporarily disabled)
+        // return 2; // Two tabs: ScreenLife and MindPulse
     }
 
     public String getTabTitle(int position) {
+        // MindPulse tab temporarily disabled - only show ScreenLife
+        return "ScreenLife";
+        /*
         switch (position) {
             case 0:
                 return "ScreenLife";
@@ -38,5 +46,6 @@ public class MainPagerAdapter extends FragmentStateAdapter {
             default:
                 return "ScreenLife";
         }
+        */
     }
 }
