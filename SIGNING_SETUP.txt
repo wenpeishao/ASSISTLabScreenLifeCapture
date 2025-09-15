@@ -1,0 +1,55 @@
+QUICK SETUP GUIDE - UW ASSIST Lab ScreenLife Release Build
+================================================
+
+Since you've run generate-keystore.bat, you should have entered:
+1. Your name, organization, etc.
+2. A keystore password (minimum 6 characters)
+3. A key password (minimum 6 characters)
+
+The keystore file should be at: app\release-keystore.jks
+
+NEXT STEPS:
+-----------
+
+1. CREATE signing.properties FILE:
+   
+   Copy and paste this into a new file called "signing.properties":
+   
+   storeFile=release-keystore.jks
+   storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+   keyAlias=release-key
+   keyPassword=YOUR_KEY_PASSWORD_HERE
+   
+   Replace YOUR_KEYSTORE_PASSWORD_HERE and YOUR_KEY_PASSWORD_HERE
+   with the actual passwords you used.
+
+2. BUILD THE RELEASE:
+   
+   Option A - Run the automated script:
+   > setup-and-build.bat
+   
+   Option B - Run manually:
+   > gradlew clean
+   > gradlew bundleRelease
+
+3. FIND YOUR AAB FILE:
+   
+   Location: app\build\outputs\bundle\release\app-release.aab
+   This is what you upload to Google Play Console.
+
+TROUBLESHOOTING:
+----------------
+
+If "keystore not found":
+- Check if file exists at: app\release-keystore.jks
+- If you saved it elsewhere, copy it to app\ folder
+
+If "wrong password":
+- Make sure passwords in signing.properties match exactly
+- No quotes needed around passwords
+- Check for extra spaces
+
+If build fails:
+- Run: gradlew clean
+- Try: gradlew assembleRelease (builds APK instead of AAB)
+- Check error messages for missing dependencies

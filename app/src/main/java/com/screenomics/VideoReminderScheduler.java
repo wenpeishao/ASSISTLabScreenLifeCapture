@@ -24,6 +24,9 @@ public class VideoReminderScheduler extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        // Video reminders disabled until IRB approval
+        // Uncomment the code below when ready to enable
+        /*
         String action = intent.getAction();
         
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
@@ -32,6 +35,7 @@ public class VideoReminderScheduler extends BroadcastReceiver {
             showReminderNotification(context);
             scheduleNextReminder(context);
         }
+        */
     }
 
     public static void scheduleReminders(Context context, int intervalHours) {

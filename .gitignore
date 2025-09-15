@@ -14,6 +14,10 @@ captures/
 .externalNativeBuild
 .cxx/
 *.apk
+*.aab
+*.jks
+*.keystore
+signing.properties
 output.json
 /gradlew
 /app/release
