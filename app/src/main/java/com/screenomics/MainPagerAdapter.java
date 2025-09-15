@@ -6,6 +6,9 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 
 public class MainPagerAdapter extends FragmentStateAdapter {
+    
+    // Feature flag for MindPulse - set to true when IRB approved
+    private static final boolean MINDPULSE_ENABLED = false;
 
     public MainPagerAdapter(@NonNull FragmentActivity fragmentActivity) {
         super(fragmentActivity);
@@ -14,9 +17,6 @@ public class MainPagerAdapter extends FragmentStateAdapter {
     @NonNull
     @Override
     public Fragment createFragment(int position) {
-        // MindPulse tab temporarily disabled - only show ScreenLife
-        return new ScreenLifeFragment();
-        /*
         switch (position) {
             case 0:
                 return new ScreenLifeFragment();
@@ -25,27 +25,23 @@ public class MainPagerAdapter extends FragmentStateAdapter {
             default:
                 return new ScreenLifeFragment();
         }
-        */
     }
 
     @Override
     public int getItemCount() {
-        return 1; // Only ScreenLife tab (MindPulse temporarily disabled)
-        // return 2; // Two tabs: ScreenLife and MindPulse
+        // Only show MindPulse tab when enabled (after IRB approval)
+        return MINDPULSE_ENABLED ? 2 : 1;
     }
 
     public String getTabTitle(int position) {
-        // MindPulse tab temporarily disabled - only show ScreenLife
-        return "ScreenLife";
-        /*
         switch (position) {
             case 0:
                 return "ScreenLife";
             case 1:
-                return "MindPulse";
+                // MindPulse tab - only visible when MINDPULSE_ENABLED = true
+                return MINDPULSE_ENABLED ? "MindPulse" : "ScreenLife";
             default:
                 return "ScreenLife";
         }
-        */
     }
 }

@@ -18,6 +18,11 @@ import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ProgressBar;
+import android.os.Handler;
+import android.os.Looper;
+import android.media.MediaRecorder;
+import android.media.AudioManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -53,6 +58,18 @@ public class MindPulseFragment extends Fragment {
     private TextView cameraStatus;
     private View recordingIndicator;
     private Spinner reminderSpinner;
+    private TextView recordingTimer;
+    private ProgressBar volumeLevelBar;
+    private View faceGuideOverlay;
+    private TextView faceGuideText;
+    
+    // Timer and audio monitoring
+    private Handler timerHandler;
+    private Runnable timerRunnable;
+    private long recordingStartTime;
+    private MediaRecorder audioRecorder;
+    private Handler volumeHandler;
+    private Runnable volumeRunnable;
     
     private ProcessCameraProvider cameraProvider;
     private Preview preview;
@@ -72,22 +89,17 @@ public class MindPulseFragment extends Fragment {
         
         initializeViews(view);
         setupReminderSpinner();
-        // Video recording temporarily disabled - to be re-enabled in future version
-        // setupVideoRecording();
+        setupVideoRecording();
         
-        // Camera permissions temporarily disabled
-        /*
         if (checkPermissions()) {
             initializeCamera();
         } else {
             requestPermissions();
         }
-        */
         
-        // Display message about video recording being disabled
-        if (cameraStatus != null) {
-            cameraStatus.setText("Video recording will be available in a future version");
-        }
+        // Initialize handlers
+        timerHandler = new Handler(Looper.getMainLooper());
+        volumeHandler = new Handler(Looper.getMainLooper());
     }
 
     private void initializeViews(View view) {
@@ -97,20 +109,35 @@ public class MindPulseFragment extends Fragment {
         cameraStatus = view.findViewById(R.id.cameraStatus);
         recordingIndicator = view.findViewById(R.id.recordingIndicator);
         reminderSpinner = view.findViewById(R.id.reminderSpinner);
-        
-        // Hide video recording UI elements
-        if (cameraPreview != null) cameraPreview.setVisibility(View.GONE);
-        if (videoRecordButton != null) {
-            videoRecordButton.setVisibility(View.GONE);
-            videoRecordButton.setEnabled(false);
-        }
-        if (recordingStatus != null) recordingStatus.setVisibility(View.GONE);
-        if (recordingIndicator != null) recordingIndicator.setVisibility(View.GONE);
+        recordingTimer = view.findViewById(R.id.recordingTimer);
+        volumeLevelBar = view.findViewById(R.id.volumeLevelBar);
+        faceGuideOverlay = view.findViewById(R.id.faceGuideOverlay);
+        faceGuideText = view.findViewById(R.id.faceGuideText);
     }
 
     private boolean checkPermissions() {
         return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+    
+    private boolean checkAllPermissions() {
+        boolean cameraPermission = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        boolean audioPermission = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        
+        Log.d(TAG, "Camera permission: " + cameraPermission);
+        Log.d(TAG, "Audio permission: " + audioPermission);
+        
+        return cameraPermission && audioPermission;
+    }
+    
+    private void showPermissionDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Permissions Required")
+            .setMessage("Camera and microphone permissions are required for video recording. Please grant all permissions to continue.")
+            .setPositiveButton("Grant Permissions", (dialog, which) -> requestPermissions())
+            .setNegativeButton("Cancel", null)
+            .setCancelable(false)
+            .show();
     }
 
     private void requestPermissions() {
@@ -131,21 +158,46 @@ public class MindPulseFragment extends Fragment {
                 if (Manifest.permission.CAMERA.equals(permissions[i]) && 
                     grantResults[i] == PackageManager.PERMISSION_GRANTED) {
                     cameraGranted = true;
+                    Log.d(TAG, "Camera permission granted");
                 }
                 if (Manifest.permission.RECORD_AUDIO.equals(permissions[i]) && 
                     grantResults[i] == PackageManager.PERMISSION_GRANTED) {
                     audioGranted = true;
+                    Log.d(TAG, "Audio permission granted");
                 }
             }
             
             if (cameraGranted && audioGranted) {
                 initializeCamera();
+                Toast.makeText(requireContext(), "Permissions granted! You can now record videos.", Toast.LENGTH_SHORT).show();
             } else {
-                cameraStatus.setText("Camera permissions required");
-                Toast.makeText(requireContext(), "Camera and audio permissions are required for video recording", 
-                    Toast.LENGTH_LONG).show();
+                String missingPerms = "";
+                if (!cameraGranted) missingPerms += "Camera ";
+                if (!audioGranted) missingPerms += "Microphone ";
+                
+                cameraStatus.setText("Missing permissions: " + missingPerms);
+                
+                // Show persistent dialog for missing permissions
+                showPersistentPermissionDialog(missingPerms.trim());
             }
         }
+    }
+    
+    private void showPersistentPermissionDialog(String missingPermissions) {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Permissions Still Required")
+            .setMessage("Video recording needs " + missingPermissions + " permission(s). \n\nWithout these permissions, you cannot record videos. Please grant them to continue.")
+            .setPositiveButton("Try Again", (dialog, which) -> {
+                requestPermissions();
+            })
+            .setNegativeButton("Settings", (dialog, which) -> {
+                // Open app settings
+                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
+                startActivity(intent);
+            })
+            .setCancelable(false)
+            .show();
     }
 
     private void initializeCamera() {
@@ -190,11 +242,15 @@ public class MindPulseFragment extends Fragment {
             // Bind both preview and video capture to camera
             cameraProvider.bindToLifecycle(this, cameraSelector, preview, videoCapture);
             cameraStatus.setVisibility(View.GONE);
+            
+            // Show face guide when camera is ready
+            showFaceGuide(true);
             Log.d(TAG, "Camera preview and video capture started successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error starting camera", e);
             cameraStatus.setText("Camera initialization failed");
             cameraStatus.setVisibility(View.VISIBLE);
+            showFaceGuide(false);
         }
     }
 
@@ -258,13 +314,14 @@ public class MindPulseFragment extends Fragment {
     }
 
     private void startVideoRecording() {
-        if (!checkPermissions()) {
-            requestPermissions();
+        // Enhanced permission checking
+        if (!checkAllPermissions()) {
+            showPermissionDialog();
             return;
         }
 
         if (videoCapture == null) {
-            Toast.makeText(requireContext(), "Camera not ready", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Camera not ready. Please wait for camera initialization.", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -361,6 +418,18 @@ public class MindPulseFragment extends Fragment {
             );
             recordingStatus.setText("Recording in progress...");
             recordingIndicator.setVisibility(View.VISIBLE);
+            
+            // Start timer
+            recordingTimer.setVisibility(View.VISIBLE);
+            recordingStartTime = System.currentTimeMillis();
+            startRecordingTimer();
+            
+            // Start volume monitoring
+            volumeLevelBar.setVisibility(View.VISIBLE);
+            startVolumeMonitoring();
+            
+            // Keep face guide visible during recording to help user maintain position
+            // showFaceGuide(false); // Commented out - keep guide visible
         } else {
             videoRecordButton.setText("Start Recording");
             videoRecordButton.setBackgroundTintList(
@@ -368,6 +437,133 @@ public class MindPulseFragment extends Fragment {
             );
             recordingStatus.setText("Ready to record");
             recordingIndicator.setVisibility(View.GONE);
+            
+            // Stop timer
+            recordingTimer.setVisibility(View.GONE);
+            stopRecordingTimer();
+            
+            // Stop volume monitoring
+            volumeLevelBar.setVisibility(View.GONE);
+            stopVolumeMonitoring();
+            
+            // Show face guide when not recording
+            showFaceGuide(true);
+        }
+    }
+    
+    private void startRecordingTimer() {
+        timerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                long millis = System.currentTimeMillis() - recordingStartTime;
+                int seconds = (int) (millis / 1000);
+                int minutes = seconds / 60;
+                seconds = seconds % 60;
+                
+                recordingTimer.setText(String.format("%02d:%02d", minutes, seconds));
+                timerHandler.postDelayed(this, 1000);
+            }
+        };
+        timerHandler.postDelayed(timerRunnable, 0);
+    }
+    
+    private void stopRecordingTimer() {
+        if (timerRunnable != null) {
+            timerHandler.removeCallbacks(timerRunnable);
+            recordingTimer.setText("00:00");
+        }
+    }
+    
+    private void startVolumeMonitoring() {
+        // Check audio permission before starting
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Audio permission not granted for volume monitoring");
+            return;
+        }
+        
+        try {
+            // Stop any existing recorder
+            stopVolumeMonitoring();
+            
+            audioRecorder = new MediaRecorder();
+            audioRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            audioRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            audioRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+            
+            // Use a temporary file instead of /dev/null for better compatibility
+            File tempFile = new File(requireContext().getCacheDir(), "temp_audio.3gp");
+            audioRecorder.setOutputFile(tempFile.getAbsolutePath());
+            
+            audioRecorder.prepare();
+            audioRecorder.start();
+            
+            Log.d(TAG, "Volume monitoring started successfully");
+            
+            volumeRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (audioRecorder != null) {
+                        try {
+                            int amplitude = audioRecorder.getMaxAmplitude();
+                            Log.d(TAG, "Raw amplitude: " + amplitude);
+                            
+                            // Convert amplitude to percentage (0-100)
+                            // Max amplitude for MediaRecorder is 32767
+                            int volumeLevel = 0;
+                            if (amplitude > 0) {
+                                volumeLevel = Math.min(100, (int) ((amplitude / 32767.0) * 100));
+                            }
+                            
+                            Log.d(TAG, "Volume level: " + volumeLevel + "%");
+                            volumeLevelBar.setProgress(volumeLevel);
+                            
+                            if (isRecording) {
+                                volumeHandler.postDelayed(this, 100);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error getting amplitude: " + e.getMessage());
+                        }
+                    }
+                }
+            };
+            volumeHandler.postDelayed(volumeRunnable, 100);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting volume monitoring: " + e.getMessage(), e);
+            Toast.makeText(requireContext(), "Could not start audio monitoring. Check microphone permissions.", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    private void stopVolumeMonitoring() {
+        if (volumeRunnable != null) {
+            volumeHandler.removeCallbacks(volumeRunnable);
+            volumeRunnable = null;
+        }
+        if (audioRecorder != null) {
+            try {
+                audioRecorder.stop();
+                audioRecorder.release();
+                audioRecorder = null;
+                Log.d(TAG, "Volume monitoring stopped");
+                
+                // Clean up temp file
+                File tempFile = new File(requireContext().getCacheDir(), "temp_audio.3gp");
+                if (tempFile.exists()) {
+                    tempFile.delete();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping volume monitoring: " + e.getMessage());
+            }
+        }
+        volumeLevelBar.setProgress(0);
+    }
+    
+    private void showFaceGuide(boolean show) {
+        if (faceGuideOverlay != null) {
+            faceGuideOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
+        if (faceGuideText != null) {
+            faceGuideText.setVisibility(show ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -386,6 +582,8 @@ public class MindPulseFragment extends Fragment {
             recording.stop();
             recording = null;
         }
+        stopRecordingTimer();
+        stopVolumeMonitoring();
     }
 
     @Override
@@ -393,6 +591,14 @@ public class MindPulseFragment extends Fragment {
         super.onDestroy();
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
+        }
+        stopRecordingTimer();
+        stopVolumeMonitoring();
+        if (timerHandler != null) {
+            timerHandler.removeCallbacksAndMessages(null);
+        }
+        if (volumeHandler != null) {
+            volumeHandler.removeCallbacksAndMessages(null);
         }
     }
 
