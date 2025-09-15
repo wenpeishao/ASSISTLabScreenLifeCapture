@@ -1,0 +1,8 @@
+# Signing configuration for release builds
+# Copy this file to signing.properties and fill in your values
+# DO NOT commit signing.properties to version control!
+
+storeFile=release-keystore.jks
+storePassword=YOUR_STORE_PASSWORD_HERE
+keyAlias=release-key
+keyPassword=YOUR_KEY_PASSWORD_HERE

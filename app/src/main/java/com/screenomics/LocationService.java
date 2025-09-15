@@ -148,16 +148,14 @@ public class LocationService extends Service {
 
     private void startLocationUpdates() {
         Log.d(TAG, "Starting Location Updates");
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            Log.d(TAG, "No Location Permissions");
+
+        // Check if we have the necessary location permissions
+        if (!PermissionHelper.hasPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) &&
+            !PermissionHelper.hasPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            Log.w(TAG, "Location permissions not granted. Location tracking will not work.");
+
+            // Show notification to user about missing permissions
+            showLocationPermissionNotification();
             return;
         }
         fusedLocationClient.requestLocationUpdates(locationRequest,
@@ -232,6 +230,32 @@ public class LocationService extends Service {
         }*/
     }
 
+    private void showLocationPermissionNotification() {
+        createNotificationChannel();
 
+        // Create pending intent to open app settings
+        Intent settingsIntent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        settingsIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
+        settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent settingsPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            settingsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification notification = new NotificationCompat.Builder(this, LOCATION_CHANNEL_ID)
+            .setContentTitle("Location Permission Required")
+            .setContentText("Tap to enable location permissions for data collection")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(settingsPendingIntent)
+            .addAction(android.R.drawable.ic_menu_preferences, "Settings", settingsPendingIntent)
+            .build();
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.notify(2001, notification);
+    }
 
 }

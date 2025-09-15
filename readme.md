@@ -1,13 +1,13 @@
-# ASSIST Lab ScreenLife Capture Android App
+# UW Madison ASSIST Lab ScreenLife Capture Android App
 
-This repository contains the Android application for the ScreenLife Capture research study conducted by the ASSIST Lab. The application enables participants to automatically record screenshots, capture location data, and record video at specified intervals for behavioral research purposes.
+This repository contains the Android application for the ScreenLife Capture research study conducted by the ASSIST Lab at University of Wisconsin-Madison. The application enables participants to automatically record screenshots, capture location data, and record video at specified intervals for behavioral research purposes.
 
 ## Project Overview
 
-**App Name:** ASSIST Lab ScreenLife  
-**Package ID:** edu.nd.psych.screenomics  
-**Current Version:** 1.14 (Build 16)  
-**Target SDK:** 33  
+**App Name:** UW ASSIST Lab ScreenLife
+**Package ID:** edu.wisc.chm.screenomics
+**Current Version:** 1.14 (Build 16)
+**Target SDK:** 33
 **Min SDK:** 29  
 
 ### Key Features
@@ -138,13 +138,17 @@ The application requires extensive permissions for data collection:
 
 ## Version Notes
 
-### v1.14 Changes
-- Video recording functionality temporarily disabled
-- Camera permissions commented out in manifest
-- QR code scanning disabled in RegisterActivity
-- MindPulse tab hidden from main interface
-- Only ScreenLife tab is currently visible
-- ViewPager adapter modified to show single tab
-- Video UI elements and MindPulse features hidden
-- These features will be re-enabled in a future version
+### v1.15 Changes (Development)
+- **Video Recording Restored**: Full video recording functionality re-enabled
+- **Recording Timer**: Added real-time duration display (MM:SS format)
+- **Audio Volume Indicator**: Visual feedback showing microphone input levels
+  - Green to yellow to red gradient indicating volume intensity
+  - Real-time monitoring at 100ms intervals
+- **Enhanced UI**: Improved recording interface with live feedback
+- Camera and audio permissions restored
+- MindPulse tab re-enabled with enhanced features
+
+### v1.14 Changes (Previous)
+- Video recording temporarily disabled for production release
+- MindPulse features hidden from interface
 
