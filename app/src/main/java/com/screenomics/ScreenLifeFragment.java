@@ -1,6 +1,7 @@
 package com.screenomics;
 
 import android.app.AlertDialog;
+import android.app.AppOpsManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -9,6 +10,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.Manifest;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -47,6 +51,12 @@ public class ScreenLifeFragment extends Fragment {
     private Timer numImageRefreshTimer;
     private UploadService uploadService;
 
+    // Permission status dots
+    private View cameraPermissionDot;
+    private View locationPermissionDot;
+    private View usageAccessDot;
+    private View notificationPermissionDot;
+
     private BroadcastReceiver resetCaptureReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -81,6 +91,12 @@ public class ScreenLifeFragment extends Fragment {
         uploadButton = view.findViewById(R.id.uploadButton);
         updateQRButton = view.findViewById(R.id.updateQRButton);
         statsSettingsButton = view.findViewById(R.id.settingsButton);
+
+        // Permission status dots
+        cameraPermissionDot = view.findViewById(R.id.cameraPermissionDot);
+        locationPermissionDot = view.findViewById(R.id.locationPermissionDot);
+        usageAccessDot = view.findViewById(R.id.usageAccessDot);
+        notificationPermissionDot = view.findViewById(R.id.notificationPermissionDot);
     }
 
     private void setupListeners() {
@@ -211,6 +227,7 @@ public class ScreenLifeFragment extends Fragment {
         requireContext().bindService(intent, uploaderServiceConnection, 0);
 
         startImageRefreshTimer();
+        updatePermissionStatus();
     }
 
     @Override
@@ -282,6 +299,9 @@ public class ScreenLifeFragment extends Fragment {
                             numUploadText.setText(uploadService.status.toString());
                         }
                     }
+
+                    // Update permission status regularly
+                    updatePermissionStatus();
                 });
             }
         }, 500, 5000);
@@ -408,6 +428,48 @@ public class ScreenLifeFragment extends Fragment {
         } catch (Exception e) {
             Log.e("ScreenLifeFragment", "Error generating test ID", e);
             Toast.makeText(requireContext(), "Error generating test ID", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updatePermissionStatus() {
+        if (getActivity() == null) return;
+
+        // Check Camera Permission
+        boolean cameraGranted = ContextCompat.checkSelfPermission(requireContext(),
+            Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        updatePermissionDot(cameraPermissionDot, cameraGranted);
+
+        // Check Location Permission
+        boolean locationGranted = ContextCompat.checkSelfPermission(requireContext(),
+            Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(requireContext(),
+            Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        updatePermissionDot(locationPermissionDot, locationGranted);
+
+        // Check Usage Access Permission
+        boolean usageAccessGranted = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            AppOpsManager appOps = (AppOpsManager) requireContext().getSystemService(Context.APP_OPS_SERVICE);
+            int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), requireContext().getPackageName());
+            usageAccessGranted = mode == AppOpsManager.MODE_ALLOWED;
+        }
+        updatePermissionDot(usageAccessDot, usageAccessGranted);
+
+        // Check Notification Permission (Android 13+)
+        boolean notificationGranted = true; // Default true for older versions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationGranted = ContextCompat.checkSelfPermission(requireContext(),
+                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        }
+        updatePermissionDot(notificationPermissionDot, notificationGranted);
+    }
+
+    private void updatePermissionDot(View dot, boolean granted) {
+        if (granted) {
+            dot.setBackgroundResource(R.drawable.permission_dot_green);
+        } else {
+            dot.setBackgroundResource(R.drawable.permission_dot_red);
         }
     }
 }
