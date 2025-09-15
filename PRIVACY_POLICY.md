@@ -1,7 +1,7 @@
 # Privacy Policy for UW ASSIST Lab ScreenLife
 
-**Effective Date:** [Insert Date]
-**Last Updated:** [Insert Date]
+**Effective Date:** September 15, 2025
+**Last Updated:** September 15, 2025
 
 ## About This Application
 
@@ -10,9 +10,14 @@ UW ASSIST Lab ScreenLife is a research application developed by the University o
 ## Information We Collect
 
 ### Automatically Collected Data
-- **Screen Activity:** Screenshots of your device screen at regular intervals
+- **Screen Activity:** Screenshots of your device screen at regular intervals during active capture sessions
 - **Location Data:** Your device's geographic location to understand usage patterns in different contexts
-- **Usage Statistics:** Information about app usage and device interactions
+- **App Usage Statistics:** Detailed information about which apps you use, when you use them, and for how long
+  - App names and package identifiers
+  - Time spent in each app
+  - App launch and usage timestamps
+  - Foreground/background app activity
+- **Device Usage Patterns:** How you interact with your device throughout the day
 - **Technical Data:** Device type, operating system version, and app performance metrics
 
 ### User-Provided Data
@@ -22,7 +27,8 @@ UW ASSIST Lab ScreenLife is a research application developed by the University o
 ## How We Use Your Information
 
 Your data is collected solely for academic research purposes:
-- **Research Analysis:** To understand patterns in smartphone usage and digital behavior
+- **Research Analysis:** To understand patterns in smartphone usage, app usage behaviors, and digital interactions
+- **Behavioral Studies:** To analyze how people use their devices in different contexts and locations
 - **Academic Publications:** Aggregated, de-identified data may be used in research publications
 - **Study Validation:** To ensure data quality and research integrity
 
@@ -37,6 +43,12 @@ Your data is collected solely for academic research purposes:
 - **Purpose:** To collect location context for research analysis
 - **Background Access:** Location is tracked continuously while the app is active to correlate with usage patterns
 - **Data Type:** Geographic coordinates (latitude/longitude) with timestamps
+
+### Usage Access Permission
+- **Purpose:** To access detailed app usage statistics and device usage patterns
+- **Data Collected:** Which apps are used, when they're used, and duration of usage
+- **Settings Access:** The app provides a "Usage Stats Settings" button to manage this permission
+- **Required for Research:** Essential for understanding smartphone usage behaviors and patterns
 
 ### Other Permissions
 - **Screen Recording:** To capture screenshots for usage pattern analysis
@@ -87,9 +99,10 @@ Your data is collected solely for academic research purposes:
 - You may request a copy of your research data
 
 ### Contact Information
-- **Principal Investigator:** [Insert PI Name and Contact]
-- **Research Team:** [Insert Contact Email]
-- **IRB Office:** University of Wisconsin-Madison Institutional Review Board
+- **Principal Investigator:** Ross Jacobucci (jacobucci@wisc.edu)
+- **Co-Investigator:** Brooke A Ammerman (baammerman@wisc.edu)
+- **Research Team:** uw.assistlab@gmail.com
+- **IRB Office:** University of Wisconsin-Madison Institutional Review Board (IRBdirector@hsirb.wisc.edu)
 
 ## Children's Privacy
 
@@ -115,13 +128,15 @@ Data collected through this app is processed in the United States. If you are lo
 If you have questions about this privacy policy or our data practices, please contact:
 
 **UW-Madison ASSIST Lab**
-[Insert Full Address]
-Email: [Insert Contact Email]
-Phone: [Insert Phone Number]
+Center for Healthy Minds
+625 West Washington Avenue
+Madison, WI 53703, US
+Email: uw.assistlab@gmail.com
+Phone: (608) 263-6321
 
 **University of Wisconsin-Madison IRB**
-Email: [Insert IRB Contact]
-Phone: [Insert IRB Phone]
+Email: IRBdirector@hsirb.wisc.edu
+Phone: (608) 263-2020
 
 ## Institutional Review Board Approval
 
