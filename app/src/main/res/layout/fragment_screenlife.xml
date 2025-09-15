@@ -125,15 +125,135 @@
 
         </LinearLayout>
 
-        <!-- Settings and Upload Buttons -->
+        <!-- Permission Status Indicators -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:textColor="#1A1A1A"
             android:textAlignment="center"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:text="Required Permissions Status" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="16dp"
+            android:orientation="vertical">
+
+            <!-- Camera Permission -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/cameraPermissionDot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/permission_dot_red" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Camera (QR Scanning)"
+                    android:textColor="#212121"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!-- Location Permission -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/locationPermissionDot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/permission_dot_red" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Location (Background)"
+                    android:textColor="#212121"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!-- Usage Access Permission -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/usageAccessDot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/permission_dot_red" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Usage Access (App Stats)"
+                    android:textColor="#212121"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!-- Notification Permission -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/notificationPermissionDot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/permission_dot_red" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Notifications"
+                    android:textColor="#212121"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Settings and Upload Buttons -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#1A1A1A"
+            android:textAlignment="center"
             android:textSize="10sp"
-            android:text="First time running click below and enable permissions" />
+            android:text="Click below to enable missing permissions" />
 
         <Button
             android:id="@+id/settingsButton"
