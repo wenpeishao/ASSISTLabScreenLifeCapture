@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Extra large screen devices (tablets) -->
+    <dimen name="camera_preview_height">500dp</dimen>
+    <dimen name="camera_preview_margin">24dp</dimen>
+</resources>

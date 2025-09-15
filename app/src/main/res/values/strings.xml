@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">ND ASSIST Lab ScreenLife</string>
+    <string name="app_name">UW ASSIST Lab ScreenLife</string>
     <string name="capture_state_on">CAPTURING DATA</string>
     <string name="capture_state_off">CURRENTLY NOT CAPTURING DATA</string>
-    <string name="app_creator">by ND ScreenLife Capture Team</string>
+    <string name="app_creator">by UW Madison ASSIST Lab</string>
     <string name="username_hint">Enter your name</string>
     <string name="key_hint">Create your key</string>
     <string name="firstlaunch_submit">Submit</string>

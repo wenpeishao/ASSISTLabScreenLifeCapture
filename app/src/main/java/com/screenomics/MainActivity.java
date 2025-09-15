@@ -33,6 +33,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.viewpager2.widget.ViewPager2;
+import android.app.AlertDialog;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -57,8 +58,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.analytics.FirebaseAnalytics;
+// Firebase temporarily disabled
+// import com.google.firebase.FirebaseApp;
+// import com.google.firebase.analytics.FirebaseAnalytics;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -89,8 +91,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        FirebaseApp.initializeApp(this);
-        FirebaseAnalytics mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+        // Firebase temporarily disabled - uncomment after setup
+        // FirebaseApp.initializeApp(this);
+        // FirebaseAnalytics mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
         mWorkManager = WorkManager.getInstance(this);
 
@@ -265,7 +268,8 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if(result.getResultCode() != RESULT_OK){
-                        Toast.makeText(getApplicationContext(), "Permission denied", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Screen recording permission denied", Toast.LENGTH_SHORT).show();
+                        resetCaptureState();
                         return;
                     }
                     try {
@@ -274,10 +278,11 @@ public class MainActivity extends AppCompatActivity {
                         screenCaptureIntent.putExtra("intentData", result.getData());
                         screenCaptureIntent.putExtra("screenDensity", mScreenDensity);
                         startForegroundService(screenCaptureIntent);
-                        startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                         Toast.makeText(MainActivity.this, "ScreenLife Capture is running!", Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        Log.e("MainActivity", "Failed to start CaptureService: " + e.getMessage(), e);
+                        Toast.makeText(MainActivity.this, "Failed to start screen capture: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        resetCaptureState();
                     }
                 }
             });
@@ -360,8 +365,6 @@ public class MainActivity extends AppCompatActivity {
         boolean isDev = prefs.getBoolean("isDev", false);
         if (!isDev) devButton.setVisibility(View.GONE);
 
-        // MindPulse tab switching disabled - feature temporarily unavailable
-        /*
         Intent launchIntent = getIntent();
         if (launchIntent != null && launchIntent.getBooleanExtra("start_video_recording", false)) {
             // Switch to MindPulse tab and start recording
@@ -369,7 +372,6 @@ public class MainActivity extends AppCompatActivity {
                 viewPager.setCurrentItem(1); // Switch to MindPulse tab
             }
         }
-        */
     }
 
     // This needs to be here so that onResume is called at the correct time.
@@ -397,8 +399,48 @@ public class MainActivity extends AppCompatActivity {
 
     // Public methods for fragments to call
     public void startLocationService(){
-        Intent intent = new Intent(this, LocationService.class);
-        startService(intent);
+        // Check if we have location permissions first
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            // We have location permissions, start the service
+            try {
+                Intent intent = new Intent(MainActivity.this, LocationService.class);
+                startService(intent);
+            } catch (Exception e) {
+                Log.e("MainActivity", "Failed to start LocationService: " + e.getMessage());
+                Toast.makeText(this, "Location service unavailable - continuing without location data", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // Request location permissions
+            PermissionHelper.requestLocationPermissions(this, new PermissionHelper.PermissionCallback() {
+                @Override
+                public void onPermissionGranted() {
+                    try {
+                        Intent intent = new Intent(MainActivity.this, LocationService.class);
+                        startService(intent);
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "Failed to start LocationService: " + e.getMessage());
+                        Toast.makeText(MainActivity.this, "Location service unavailable - continuing without location data", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onPermissionDenied() {
+                    Toast.makeText(MainActivity.this,
+                        "Location data collection disabled - screen recording will continue without location data",
+                        Toast.LENGTH_SHORT).show();
+                    // Don't reset capture state, continue with just screen recording
+                }
+
+                @Override
+                public void onPermissionPermanentlyDenied() {
+                    Toast.makeText(MainActivity.this,
+                        "Location permission permanently denied - screen recording will continue without location data",
+                        Toast.LENGTH_SHORT).show();
+                    // Don't reset capture state, continue with just screen recording
+                }
+            });
+        }
     }
 
     public void stopLocationService(){
@@ -407,13 +449,63 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void startMediaProjectionRequest() {
-        mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        mMediaProjectionLauncher.launch(mProjectionManager.createScreenCaptureIntent());
+        // First check notification permission for Android 13+
+        PermissionHelper.requestNotificationPermission(this, new PermissionHelper.PermissionCallback() {
+            @Override
+            public void onPermissionGranted() {
+                // Show explanation dialog before media projection
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Screen Recording Permission")
+                    .setMessage("The app needs to record your screen for the research study.\n\n" +
+                               "Your data will be encrypted and used only for research purposes.\n\n" +
+                               "You'll see a system prompt to allow screen recording.")
+                    .setIcon(android.R.drawable.ic_menu_camera)
+                    .setPositiveButton("Continue", (dialog, which) -> {
+                        mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                        mMediaProjectionLauncher.launch(mProjectionManager.createScreenCaptureIntent());
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        resetCaptureState();
+                    })
+                    .setCancelable(false)
+                    .show();
+            }
+
+            @Override
+            public void onPermissionDenied() {
+                Toast.makeText(MainActivity.this,
+                    "Notification permission recommended for status updates",
+                    Toast.LENGTH_SHORT).show();
+                // Still continue with media projection even if notifications denied
+                onPermissionGranted();
+            }
+
+            @Override
+            public void onPermissionPermanentlyDenied() {
+                // Still continue with media projection even if notifications denied
+                onPermissionGranted();
+            }
+        });
     }
 
     public void stopCaptureService() {
         Intent serviceIntent = new Intent(this, CaptureService.class);
         stopService(serviceIntent);
+    }
+
+    private void resetCaptureState() {
+        Log.d("MainActivity", "resetCaptureState() called - broadcasting reset");
+        // Reset the recording state in SharedPreferences
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean("recordingState", false);
+        editor.apply();
+
+        // Since we can't easily access the fragment from ViewPager2,
+        // the fragment will pick up the updated state when it checks onResume()
+        // or we can send a broadcast to notify fragments
+        Intent broadcastIntent = new Intent("com.screenomics.RESET_CAPTURE_STATE");
+        sendBroadcast(broadcastIntent);
     }
 
 }

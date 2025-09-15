@@ -12,4 +12,19 @@
     inner_frame_layout_padding (below variable) on round screens.
     -->
     <dimen name="inner_frame_layout_padding">5dp</dimen>
+    
+    <!-- Camera Preview Dimensions - Default for normal screens -->
+    <dimen name="camera_preview_height">300dp</dimen>
+    <dimen name="camera_preview_margin">16dp</dimen>
+    <dimen name="camera_preview_corner_radius">12dp</dimen>
+    
+    <!-- Face Guide -->
+    <dimen name="face_guide_margin_vertical">40dp</dimen>
+    <dimen name="face_guide_margin_horizontal">60dp</dimen>
+    <dimen name="face_guide_stroke_width">3dp</dimen>
+    
+    <!-- UI Elements -->
+    <dimen name="button_margin">12dp</dimen>
+    <dimen name="text_margin">8dp</dimen>
+    <dimen name="recording_indicator_size">16dp</dimen>
 </resources>

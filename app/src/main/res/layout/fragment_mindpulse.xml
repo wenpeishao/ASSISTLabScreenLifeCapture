@@ -6,7 +6,8 @@
     android:background="@color/white_isabelline"
     android:orientation="vertical"
     android:gravity="center_horizontal"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:weightSum="1">
 
     <!-- Title -->
     <TextView
@@ -20,41 +21,118 @@
 
     <!-- Camera Preview -->
     <androidx.cardview.widget.CardView
-        android:layout_width="240dp"
-        android:layout_height="160dp"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/camera_preview_height"
         android:layout_marginTop="12dp"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="2dp">
+        android:layout_marginHorizontal="@dimen/camera_preview_margin"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="@dimen/camera_preview_corner_radius"
+        app:cardElevation="4dp">
 
-        <androidx.camera.view.PreviewView
-            android:id="@+id/cameraPreview"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop" />
+            android:layout_height="match_parent">
 
-        <!-- Recording indicator -->
-        <View
-            android:id="@+id/recordingIndicator"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:layout_gravity="top|end"
-            android:layout_margin="8dp"
-            android:background="@drawable/recording_indicator"
-            android:visibility="gone" />
+            <androidx.camera.view.PreviewView
+                android:id="@+id/cameraPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
 
-        <!-- Camera preview overlay text -->
-        <TextView
-            android:id="@+id/cameraStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Camera Preview"
-            android:textColor="@android:color/white"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="#80000000"
-            android:padding="6dp"
-            android:visibility="visible" />
+            <!-- Face Guide Overlay -->
+            <View
+                android:id="@+id/faceGuideOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/face_guide_overlay"
+                android:visibility="visible" />
+
+            <!-- Recording indicator -->
+            <View
+                android:id="@+id/recordingIndicator"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="12dp"
+                android:background="@drawable/recording_indicator"
+                android:visibility="gone" />
+            
+            <!-- Recording Timer Overlay -->
+            <TextView
+                android:id="@+id/recordingTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_marginTop="12dp"
+                android:text="00:00"
+                android:textColor="#FFFF0000"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:background="#80000000"
+                android:padding="6dp"
+                android:visibility="gone" />
+            
+            <!-- Audio Volume Indicator Overlay -->
+            <LinearLayout
+                android:layout_width="160dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="50dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="#80000000"
+                android:padding="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Audio Level"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp" />
+
+                <ProgressBar
+                    android:id="@+id/volumeLevelBar"
+                    style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/volume_progress_drawable"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Face positioning instruction -->
+            <TextView
+                android:id="@+id/faceGuideText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="16dp"
+                android:text="Position your face in the oval"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="#80000000"
+                android:padding="8dp"
+                android:visibility="visible" />
+
+            <!-- Camera preview overlay text -->
+            <TextView
+                android:id="@+id/cameraStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Camera Preview"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="#80000000"
+                android:padding="8dp"
+                android:visibility="visible" />
+
+        </FrameLayout>
 
     </androidx.cardview.widget.CardView>
 
@@ -79,6 +157,7 @@
         android:text="Ready to record"
         android:textColor="#666666"
         android:textSize="12sp" />
+
 
     <!-- Reminder Settings -->
     <LinearLayout

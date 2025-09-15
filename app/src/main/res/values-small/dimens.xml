@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Small screen devices (< 426dp width) -->
+    <dimen name="camera_preview_height">250dp</dimen>
+    <dimen name="camera_preview_margin">12dp</dimen>
+</resources>
