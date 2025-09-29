@@ -16,7 +16,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- RECEIVE_BOOT_COMPLETED removed for Android 15+ compatibility -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -55,13 +55,13 @@
         <service
             android:name=".UploadService"
             android:enabled="true"
-            android:exported="true"
+            android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location"
             android:enabled="true"
-            android:exported="true"
+            android:exported="false"
         />
         <service
             android:name=".VideoCaptureService"
@@ -70,10 +70,8 @@
             android:foregroundServiceType="camera" />
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
             android:exported="true"
-            android:enabled="true"
-            tools:ignore="LockedOrientationActivity">
+            android:enabled="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -90,19 +88,11 @@
             android:name=".RegisterActivity"
             android:parentActivityName=".MainActivity" />
 
-        <receiver android:name=".UploadScheduler"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-        
-        <receiver android:name=".VideoReminderScheduler"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+        <receiver
+            android:name=".AutoUploadReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
 
 </manifest>

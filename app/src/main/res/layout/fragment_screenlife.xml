@@ -95,35 +95,7 @@
 
         </LinearLayout>
 
-        <!-- Auto Upload Settings -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginHorizontal="16dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Auto upload every 12 hours?"
-                android:textColor="#212121"
-                android:textSize="12sp"
-                android:layout_marginEnd="8dp" />
-
-            <Switch
-                android:id="@+id/autoUploadSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:showText="true"
-                android:textOff="No"
-                android:textOn="Yes"
-                android:thumb="@drawable/switch_thumb"
-                android:track="@drawable/switch_track" />
-
-        </LinearLayout>
+        <!-- Auto upload feature removed - no longer needed -->
 
         <!-- Permission Status Indicators -->
         <TextView

@@ -101,12 +101,12 @@ public class DevToolsActivity extends Activity {
         });
 
         attemptUploadButton.setOnClickListener(v -> {
-            UploadScheduler.setAlarmInXSeconds(getApplicationContext(), 10);
+            UploadScheduler.scheduleUploadInSeconds(getApplicationContext(), 10);
             Toast.makeText(getApplicationContext(), "Setting upload in 10s...", Toast.LENGTH_SHORT).show();
         });
 
         attemptUploadButton2.setOnClickListener(v -> {
-            UploadScheduler.setAlarmInXSeconds(getApplicationContext(), 300);
+            UploadScheduler.scheduleUploadInSeconds(getApplicationContext(), 300);
             Toast.makeText(getApplicationContext(), "Setting upload in 5m...", Toast.LENGTH_SHORT).show();
         });
 

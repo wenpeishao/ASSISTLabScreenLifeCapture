@@ -135,10 +135,13 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String hash = prefs.getString("hash", "00000000").substring(0, 8);
-        
-        Date date = new Date();
-        long timestamp = date.getTime();
-        String filename = hash + "_" + timestamp + "_video.mp4";
+
+        // Generate IV for video file
+        byte[] videoIV = SecureFileUtils.generateSecureIV();
+        String filename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4", videoIV);
+
+        // Store IV in SharedPreferences for later encryption
+        prefs.edit().putString("currentVideoIV", SecureFileUtils.bytesToHex(videoIV)).apply();
         
         File videoDir = new File(getExternalFilesDir(null), "videos");
         if (!videoDir.exists()) {
@@ -201,13 +204,17 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
                 
                 String encryptedPath = encryptDir + File.separator + originalFile.getName();
                 
-                Encryptor.encryptFile(key, "/" + originalFile.getName(), videoPath, encryptedPath);
-                
+                // Use the IV that matches the filename
+                byte[] returnedIv = Encryptor.encryptFile(key, videoPath, encryptedPath);
+
+                // Real-time upload after video encryption
+                UploadScheduler.uploadFileImmediately(this, encryptedPath);
+
                 if (originalFile.delete()) {
                     Log.d(TAG, "Original video file deleted");
                 }
-                
-                Log.d(TAG, "Video encrypted and ready for upload");
+
+                Log.d(TAG, "Video encrypted and uploaded");
                 
             } catch (Exception e) {
                 Log.e(TAG, "Error encrypting video", e);

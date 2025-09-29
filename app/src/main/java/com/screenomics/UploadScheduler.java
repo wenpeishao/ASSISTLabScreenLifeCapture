@@ -2,101 +2,58 @@ package com.screenomics;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.SystemClock;
 import androidx.preference.PreferenceManager;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
 
 import java.io.File;
-import java.util.Calendar;
+import java.util.concurrent.TimeUnit;
 
 
-public class UploadScheduler extends BroadcastReceiver {
-    private AlarmManager alarm;
-    private PendingIntent alarmIntent;
-    private Context context;
+public class UploadScheduler {
 
-    public UploadScheduler() {}
-    // will be flagged as unused, but is called by the alarm intent below.
+    public static void handleAutoUpload(Context context) {
+        // Handle 2-minute automatic upload
+        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload triggered");
 
-    public UploadScheduler(Context context) {
-        this.alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, UploadScheduler.class);
+        // Check if there are files to upload
+        File f_encrypt = new File(context.getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");
+        File[] files = f_encrypt.listFiles();
+        int fileCount = (files != null) ? files.length : 0;
+        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Found " + fileCount + " files to upload in " + f_encrypt.getAbsolutePath());
 
-        int intentflags;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-            intentflags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
-        }else{
-            intentflags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (fileCount == 0) {
+            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "No files to upload, skipping");
+            return;
         }
 
-        this.alarmIntent = PendingIntent.getBroadcast(context, 0, intent, intentflags);
-        this.context = context;
+        // Clear old logs first
+        clearOldLogs(context);
 
-        System.out.println("Resetting alarms!");
-        alarm.cancel(this.alarmIntent);
-    }
+        // Check WiFi preference and upload
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
 
-    private void setAlarm(int hour, int minute) {
-        Calendar cal = Calendar.getInstance();
-        long now = System.currentTimeMillis();
-        cal.setTimeInMillis(now);
-        cal.set(Calendar.HOUR_OF_DAY, hour);
-        cal.set(Calendar.MINUTE, minute);
-
-        float diff =  (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000 / 60;
-        if (diff < 0) {
-            cal.add(Calendar.DATE, 1);
-            diff = (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000 / 60;
-        }
-
-        Logger.i(context, "ALM!" + diff);
-        alarm.setRepeating(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), AlarmManager.INTERVAL_DAY, alarmIntent);
-    }
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        String action = intent.getAction();
-        
-        if (action != null && action.equals("android.intent.action.BOOT_COMPLETED")) {
-            // Re-setup auto upload after device restart
-            setupAutoUpload(context);
-            
-            if (InternetConnection.checkWiFiConnection(context)) {
-                startUpload(context, false);
-            } else {
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-                boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
-                if (continueWithoutWifi) {
-                    startUpload(context, true);
-                }
-            }
-        } else if (action != null && action.equals("AUTO_UPLOAD_ACTION")) {
-            // Handle 12-hour automatic upload
-            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload triggered");
-            
-            // Clear old logs first
-            clearOldLogs(context);
-            
-            // Check WiFi preference and upload
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
-            
-            if (InternetConnection.checkWiFiConnection(context)) {
-                android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Starting auto upload with WiFi");
-                startUpload(context, false);
-            } else if (continueWithoutWifi) {
-                android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Starting auto upload with mobile data");
-                startUpload(context, true);
-            } else {
-                android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Skipping auto upload - no WiFi and mobile data disabled");
-            }
+        if (InternetConnection.checkWiFiConnection(context)) {
+            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Starting auto upload with WiFi");
+            startUpload(context, false);
+        } else if (continueWithoutWifi) {
+            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Starting auto upload with mobile data");
+            startUpload(context, true);
+        } else {
+            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Skipping auto upload - no WiFi and mobile data disabled");
         }
     }
     
-    private void clearOldLogs(Context context) {
+    private static void clearOldLogs(Context context) {
         try {
             // Clear Logger logs
             Logger.reset(context);
@@ -106,25 +63,17 @@ public class UploadScheduler extends BroadcastReceiver {
         }
     }
 
-    public static void setAlarmInXSeconds(Context context, int seconds) {
-        Calendar cal = Calendar.getInstance();
-        long now = System.currentTimeMillis();
-        cal.setTimeInMillis(now + (seconds * 1000));
+    public static void scheduleUploadInSeconds(Context context, int seconds) {
+        System.out.printf("SCHEDULING UPLOAD TO RUN IN: %d seconds%n", seconds);
+        Logger.i(context, "SCH" + seconds);
 
-        System.out.printf("SETTING ALARM TO RUN IN: %d%n", (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000);
-        Logger.i(context, "ALM" + (cal.getTimeInMillis() - System.currentTimeMillis()) / 1000);
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, UploadScheduler.class);
+        // Use WorkManager for one-time upload scheduling
+        androidx.work.OneTimeWorkRequest uploadWork =
+            new androidx.work.OneTimeWorkRequest.Builder(AutoUploadWorker.class)
+                .setInitialDelay(seconds, TimeUnit.SECONDS)
+                .build();
 
-        int intentflags;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-            intentflags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
-        }else{
-            intentflags = PendingIntent.FLAG_UPDATE_CURRENT;
-        }
-
-        PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 0, intent, intentflags);
-        alarm.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), alarmIntent);
+        WorkManager.getInstance(context).enqueue(uploadWork);
     }
 
 
@@ -144,50 +93,87 @@ public class UploadScheduler extends BroadcastReceiver {
         }
     }
 
-    // Set up automatic upload every 12 hours
+    // Set up automatic upload every 2 minutes using AlarmManager
     public static void setupAutoUpload(Context context) {
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, UploadScheduler.class);
-        intent.setAction("AUTO_UPLOAD_ACTION");
+        // Cancel any existing work
+        cancelAutoUpload(context);
 
-        int intentflags;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-            intentflags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
-        }else{
-            intentflags = PendingIntent.FLAG_UPDATE_CURRENT;
+        // Use AlarmManager for exact 2-minute intervals
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, AutoUploadReceiver.class);
+
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
         }
 
-        PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 1, intent, intentflags);
-        
-        // Cancel any existing auto upload alarms
-        alarm.cancel(alarmIntent);
-        
-        // Set first alarm for 12 hours from now, then repeat every 12 hours
-        long twelveHoursInMillis = 12 * 60 * 60 * 1000L; // 12 hours in milliseconds
-        long firstRunTime = System.currentTimeMillis() + twelveHoursInMillis;
-        
-        alarm.setRepeating(AlarmManager.RTC_WAKEUP, firstRunTime, twelveHoursInMillis, alarmIntent);
-        
-        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload scheduled every 12 hours starting at: " + 
-            new java.util.Date(firstRunTime));
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags);
+
+        // Schedule repeating alarm every 2 minutes
+        long intervalMillis = 2 * 60 * 1000; // 2 minutes
+        long triggerAtMillis = SystemClock.elapsedRealtime() + intervalMillis;
+
+        if (alarmManager != null) {
+            alarmManager.setRepeating(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                triggerAtMillis,
+                intervalMillis,
+                pendingIntent
+            );
+        }
+
+        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload scheduled every 2 minutes using AlarmManager");
     }
 
     public static void cancelAutoUpload(Context context) {
-        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, UploadScheduler.class);
-        intent.setAction("AUTO_UPLOAD_ACTION");
+        // Cancel AlarmManager
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, AutoUploadReceiver.class);
 
-        int intentflags;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-            intentflags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_NO_CREATE;
-        }else{
-            intentflags = PendingIntent.FLAG_NO_CREATE;
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
         }
 
-        PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 1, intent, intentflags);
-        if (alarmIntent != null) {
-            alarm.cancel(alarmIntent);
-            android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload cancelled");
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags);
+
+        if (alarmManager != null) {
+            alarmManager.cancel(pendingIntent);
+        }
+
+        // Also cancel any existing WorkManager work as fallback
+        WorkManager.getInstance(context).cancelUniqueWork("auto_upload_periodic");
+        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload cancelled");
+    }
+
+    /**
+     * Upload a single file immediately (real-time upload)
+     */
+    public static void uploadFileImmediately(Context context, String filePath) {
+        android.util.Log.i("SCREENOMICS_REALTIME_UPLOAD", "Starting real-time upload for: " + filePath);
+
+        // Check network and upload preference
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
+
+        boolean shouldUpload = false;
+        boolean useMobileData = false;
+
+        if (InternetConnection.checkWiFiConnection(context)) {
+            shouldUpload = true;
+            useMobileData = false;
+            android.util.Log.i("SCREENOMICS_REALTIME_UPLOAD", "WiFi available, uploading");
+        } else if (continueWithoutWifi) {
+            shouldUpload = true;
+            useMobileData = true;
+            android.util.Log.i("SCREENOMICS_REALTIME_UPLOAD", "Using mobile data for upload");
+        } else {
+            android.util.Log.i("SCREENOMICS_REALTIME_UPLOAD", "No WiFi and mobile data disabled, skipping upload");
+        }
+
+        if (shouldUpload) {
+            // Use scheduleUploadInSeconds with a very short delay to upload immediately
+            scheduleUploadInSeconds(context, 1); // 1 second delay
         }
     }
 }

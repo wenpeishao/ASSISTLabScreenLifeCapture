@@ -2,6 +2,7 @@ package com.screenomics;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -522,10 +523,14 @@ public class RegisterActivity extends AppCompatActivity {
                 key = testKey.toString();
                 hash = toHexString(getSHA(key));
 
+                // Log the key length for debugging
+                Log.d("RegisterActivity", "Generated test ID length: " + key.length());
+                Log.d("RegisterActivity", "Generated test ID: " + key);
+
                 continueButton.setText("Test ID: " + hash.substring(0, 8) + "...");
                 continueButton.setEnabled(true);
 
-                Toast.makeText(this, "Test ID generated successfully!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Test ID generated (length: " + key.length() + ")", Toast.LENGTH_SHORT).show();
 
                 // Show the generated test info
                 showTestIdInfo();
@@ -550,6 +555,19 @@ public class RegisterActivity extends AppCompatActivity {
                      "This is a TESTER account. All data will be marked as test data on the backend.";
 
         builder.setMessage(info);
+
+        // Add Copy button
+        builder.setNeutralButton("Copy ID", (dialog, which) -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
+                getSystemService(Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Test ID", key);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(this, "Test ID copied! (Length: " + key.length() + " chars)", Toast.LENGTH_LONG).show();
+
+            // Show the dialog again after copying
+            showTestIdInfo();
+        });
+
         builder.setPositiveButton("Continue to App", (dialog, which) -> {
             commitSharedPreferences(true); // Mark as tester
             Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
