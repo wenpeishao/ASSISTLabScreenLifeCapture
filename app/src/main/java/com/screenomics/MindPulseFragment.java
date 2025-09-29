@@ -327,9 +327,8 @@ public class MindPulseFragment extends Fragment {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         String hash = prefs.getString("hash", "00000000").substring(0, 8);
-        
-        long timestamp = System.currentTimeMillis();
-        String filename = hash + "_" + timestamp + "_video.mp4";
+
+        String filename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4");
         
         File videoDir = new File(requireContext().getExternalFilesDir(null), "videos");
         if (!videoDir.exists()) {
@@ -390,7 +389,7 @@ public class MindPulseFragment extends Fragment {
                 
                 String encryptedPath = encryptDir + File.separator + originalFile.getName();
                 
-                Encryptor.encryptFile(key, "/" + originalFile.getName(), videoPath, encryptedPath);
+                Encryptor.encryptFile(key, videoPath, encryptedPath);
                 
                 File encryptedFile = new File(encryptedPath);
                 long encryptedSize = encryptedFile.length();

@@ -108,13 +108,23 @@ public class LocationService extends Service {
             super.onLocationResult(locationResult);
             Location currentLocation = locationResult.getLastLocation();
 
-            Log.d(TAG, currentLocation.getLatitude() + "," + currentLocation.getLongitude());
+            if (currentLocation == null) {
+                Log.w(TAG, "Received null location");
+                return;
+            }
+
+            Log.d(TAG, "GPS data collected: " + currentLocation.getLatitude() + "," + currentLocation.getLongitude());
 
             //write the location to a file
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
             String hash = prefs.getString("hash", "00000000").substring(0, 8);
+            String keyRaw = prefs.getString("key", "");
+            byte[] key = Converter.hexStringToByteArray(keyRaw);
             Date date = new Date();
-            String filename = "/" + hash + "_" + sdf.format(date) + "_gps.json";
+
+            // Generate IV first for filename
+            byte[] iv = SecureFileUtils.generateSecureIV();
+            String filename = "/" + SecureFileUtils.generateSecureFilename(hash, "gps", "json", iv);
             String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
 
 
@@ -129,14 +139,29 @@ public class LocationService extends Service {
 
                 Log.d(TAG, "Writing file contents: " + jsonString);
 
-                File locationFile = new File(dir + "/images", filename);
+                // Use temp file first
+                File tempFile = new File(dir + "/temp_gps.json");
 
-                FileWriter writer = new FileWriter(locationFile);
+                FileWriter writer = new FileWriter(tempFile);
                 BufferedWriter bufferedWriter = new BufferedWriter(writer);
                 bufferedWriter.write(jsonString);
                 bufferedWriter.close();
 
-                encryptFile(filename);
+                // Encrypt directly to final location
+                String encryptPath = dir + "/encrypt" + filename;
+                try {
+                    byte[] returnedIv = Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath);
+
+                    // Real-time upload after GPS data creation
+                    UploadScheduler.uploadFileImmediately(getApplicationContext(), encryptPath);
+                } catch (Exception encryptException) {
+                    Log.e(TAG, "Encryption failed for GPS data", encryptException);
+                }
+
+                // Delete temp file
+                if (tempFile.delete()) {
+                    Log.d(TAG, "Temp GPS file deleted");
+                }
 
             } catch (JSONException e) {
                 throw new RuntimeException(e);
@@ -213,7 +238,7 @@ public class LocationService extends Service {
             //fos = new FileOutputStream(dir + "/images" + filename);
 
             try{
-                Encryptor.encryptFile(key, filename, dir + "/images" + filename, dir + "/encrypt" + filename);
+                byte[] returnedIv = Encryptor.encryptFile(key, dir + "/images" + filename, dir + "/encrypt" + filename);
             } catch (Exception e) {
                 e.printStackTrace();
             }

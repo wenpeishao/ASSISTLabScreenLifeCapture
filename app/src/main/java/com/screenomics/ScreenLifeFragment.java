@@ -41,7 +41,7 @@ public class ScreenLifeFragment extends Fragment {
     
     private Switch switchCapture;
     private Switch mobileDataUse;
-    private Switch autoUploadSwitch;
+    // autoUploadSwitch removed - feature no longer needed
     private TextView captureState;
     private TextView numImagesText;
     private TextView numUploadText;
@@ -84,7 +84,7 @@ public class ScreenLifeFragment extends Fragment {
     private void initializeViews(View view) {
         switchCapture = view.findViewById(R.id.switchCapture);
         mobileDataUse = view.findViewById(R.id.mobileDataSwitch);
-        autoUploadSwitch = view.findViewById(R.id.autoUploadSwitch);
+        // autoUploadSwitch removed - feature no longer needed
         captureState = view.findViewById(R.id.captureState);
         numImagesText = view.findViewById(R.id.imageNumber);
         numUploadText = view.findViewById(R.id.uploadNumber);
@@ -131,19 +131,7 @@ public class ScreenLifeFragment extends Fragment {
             editor.apply();
         });
 
-        autoUploadSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!buttonView.isPressed()) return;
-            editor.putBoolean("autoUploadEnabled", isChecked);
-            editor.apply();
-            
-            if (isChecked) {
-                UploadScheduler.setupAutoUpload(requireContext());
-                Toast.makeText(requireContext(), "Auto upload enabled - every 12 hours", Toast.LENGTH_SHORT).show();
-            } else {
-                UploadScheduler.cancelAutoUpload(requireContext());
-                Toast.makeText(requireContext(), "Auto upload disabled", Toast.LENGTH_SHORT).show();
-            }
-        });
+        // Auto upload listener removed - feature no longer needed
 
         updateQRButton.setOnClickListener(view -> {
             showUpdateQRCodeDialog();
@@ -178,11 +166,11 @@ public class ScreenLifeFragment extends Fragment {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         boolean recordingState = prefs.getBoolean("recordingState", false);
         boolean continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
-        boolean autoUploadEnabled = prefs.getBoolean("autoUploadEnabled", true); // Default to enabled
+        // autoUploadEnabled removed - feature no longer needed
 
         switchCapture.setChecked(recordingState);
         mobileDataUse.setChecked(continueWithoutWifi);
-        autoUploadSwitch.setChecked(autoUploadEnabled);
+        // autoUploadSwitch.setChecked removed - feature no longer needed
     }
 
     public void resetCaptureSwitch() {
@@ -402,6 +390,10 @@ public class ScreenLifeFragment extends Fragment {
 
             String key = testKey.toString();
 
+            // Log the key length for debugging
+            Log.d("ScreenLifeFragment", "Generated test ID length: " + key.length());
+            Log.d("ScreenLifeFragment", "Generated test ID: " + key);
+
             // Generate hash (simplified version)
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
             md.update(Converter.hexStringToByteArray(key));
@@ -423,7 +415,8 @@ public class ScreenLifeFragment extends Fragment {
             editor.putString("testerTimestamp", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date()));
             editor.apply();
 
-            Toast.makeText(requireContext(), "New test ID generated: " + hash.substring(0, 8) + "...", Toast.LENGTH_LONG).show();
+            // Show dialog with copy option
+            showTestIdGeneratedDialog(key, hash);
 
         } catch (Exception e) {
             Log.e("ScreenLifeFragment", "Error generating test ID", e);
@@ -471,5 +464,32 @@ public class ScreenLifeFragment extends Fragment {
         } else {
             dot.setBackgroundResource(R.drawable.permission_dot_red);
         }
+    }
+
+    private void showTestIdGeneratedDialog(String key, String hash) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle("Test ID Generated Successfully");
+
+        String message = "Your new test ID has been generated:\n\n" +
+                        "Test ID: " + hash.substring(0, 12) + "...\n\n" +
+                        "Full Key: " + key.substring(0, 20) + "...\n\n" +
+                        "This account is now marked as a TESTER account. " +
+                        "All data will be identified as test data on the backend.";
+
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        // Copy button
+        builder.setNeutralButton("Copy Test ID", (dialog, which) -> {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
+                requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Test ID", key);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(requireContext(), "Test ID copied! (Length: " + key.length() + " chars)", Toast.LENGTH_LONG).show();
+        });
+
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+
+        builder.show();
     }
 }
