@@ -13,38 +13,74 @@ import java.security.spec.KeySpec;
 import java.util.Arrays;
 
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 class Encryptor {
-    static void encryptFile(byte[] key, String filename, String inPath, String outPath) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+    /**
+     * Encrypt file using AES-256-CBC with PKCS5 padding
+     * Returns the IV used for encryption (needed for filename)
+     */
+    static byte[] encryptFile(byte[] key, String inPath, String outPath) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
         FileInputStream fis = new FileInputStream(inPath);
         FileOutputStream fos = new FileOutputStream(outPath);
 
-        String fname = filename.substring(10);
-        System.out.println("ENCRYPTING WITH FNAME " + fname);
-        byte[] ivBytes = Arrays.copyOfRange(getSHA(fname), 0, 7);
+        // Generate secure 16-byte IV for AES-256-CBC
+        byte[] ivBytes = SecureFileUtils.generateSecureIV();
 
         System.out.println("ENCRYPTING WITH KEY " + toHex(key));
         System.out.println("ENCRYPTING WITH IV " + toHex(ivBytes));
 
-        SecretKeySpec secretKeySpec = new SecretKeySpec(key,"AES/GCM/NoPadding");
-        GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(16 * 8, ivBytes);
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, gcmParameterSpec);
+        // DO NOT write IV to file - it goes in the filename per server spec
+
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key,"AES");
+        IvParameterSpec ivParameterSpec = new IvParameterSpec(ivBytes);
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec);
         CipherOutputStream cos = new CipherOutputStream(fos, cipher);
+
         int b;
-        byte[] d = new byte[8];
+        byte[] d = new byte[8192];
         while ((b = fis.read(d)) != -1) {
             cos.write(d, 0, b);
         }
         cos.flush();
         cos.close();
+        fis.close();
+
+        return ivBytes;
+    }
+
+    /**
+     * Decrypt file using AES-256-CBC with IV from filename
+     */
+    static void decryptFile(byte[] key, byte[] ivBytes, String inPath, String outPath) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+        FileInputStream fis = new FileInputStream(inPath);
+        FileOutputStream fos = new FileOutputStream(outPath);
+
+        System.out.println("DECRYPTING WITH KEY " + toHex(key));
+        System.out.println("DECRYPTING WITH IV " + toHex(ivBytes));
+
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key,"AES");
+        IvParameterSpec ivParameterSpec = new IvParameterSpec(ivBytes);
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec);
+        CipherInputStream cis = new CipherInputStream(fis, cipher);
+
+        int b;
+        byte[] d = new byte[8192];
+        while ((b = cis.read(d)) != -1) {
+            fos.write(d, 0, b);
+        }
+
+        cis.close();
+        fos.close();
         fis.close();
     }
 
