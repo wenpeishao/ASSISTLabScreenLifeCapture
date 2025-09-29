@@ -122,23 +122,7 @@ public class CaptureService extends Service {
         }
     }
 
-    private void encryptTextFile(String filename){
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-
-        String keyRaw = prefs.getString("key", "");
-        byte[] key = Converter.hexStringToByteArray(keyRaw);
-
-        String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-
-        try{
-            Encryptor.encryptFile(key, filename, dir + "/images" + filename, dir + "/encrypt" + filename);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        File f = new File(dir + "/images" + filename);
-        if (f.delete()) Log.e(TAG, "file deleted: " + dir +"/images" + filename);
-
-    }
+    // Removed encryptTextFile - encryption now handled inline with proper IV in filename
 
     private void encryptImage(Bitmap bitmap, String descriptor) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -146,37 +130,44 @@ public class CaptureService extends Service {
         String keyRaw = prefs.getString("key", "");
         byte[] key = Converter.hexStringToByteArray(keyRaw);
         FileOutputStream fos = null;
-        Date date = new Date();
         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-        long timestamp = date.getTime();
-        String screenshot = "/" + hash + "_" + timestamp + "_screenshot.png";
-        
+
+        // Generate IV first since we need it for the filename
+        byte[] iv = SecureFileUtils.generateSecureIV();
+        String screenshot = "/" + SecureFileUtils.generateSecureFilename(hash, "screenshot", "png", iv);
+
         Log.d("SCREENOMICS_CAPTURE", "Creating screenshot: " + screenshot);
-        Log.d("SCREENOMICS_CAPTURE", "Hash: " + hash + ", Timestamp: " + timestamp);
+        Log.d("SCREENOMICS_CAPTURE", "Hash: " + hash);
 
         try {
-            String imagePath = dir + "/images" + screenshot;
+            // Use temp file for unencrypted image
+            String tempImagePath = dir + "/temp_image.jpg";
             String encryptPath = dir + "/encrypt" + screenshot;
-            
-            Log.d("SCREENOMICS_CAPTURE", "Saving image to: " + imagePath);
-            fos = new FileOutputStream(imagePath);
+
+            Log.d("SCREENOMICS_CAPTURE", "Saving temp image to: " + tempImagePath);
+            fos = new FileOutputStream(tempImagePath);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 70, fos);
-            Log.d("SCREENOMICS_CAPTURE", "Image saved, size: " + new File(imagePath).length() + " bytes");
-            
+            Log.d("SCREENOMICS_CAPTURE", "Image saved, size: " + new File(tempImagePath).length() + " bytes");
+
             try {
                 Log.d("SCREENOMICS_CAPTURE", "Encrypting file to: " + encryptPath);
-                Encryptor.encryptFile(key, screenshot, imagePath, encryptPath);
+                // Encrypt with pre-generated IV
+                byte[] returnedIv = Encryptor.encryptFile(key, tempImagePath, encryptPath);
                 Log.i("SCREENOMICS_CAPTURE", "Encryption completed successfully");
                 Log.d("SCREENOMICS_CAPTURE", "Encrypted file size: " + new File(encryptPath).length() + " bytes");
             } catch (Exception e) {
                 Log.e("SCREENOMICS_CAPTURE", "Encryption failed: " + e.getMessage());
                 e.printStackTrace();
             }
-            File f = new File(imagePath);
+
+            // Real-time upload after screenshot creation
+            UploadScheduler.uploadFileImmediately(this, encryptPath);
+
+            File f = new File(tempImagePath);
             if (f.delete()) {
-                Log.d("SCREENOMICS_CAPTURE", "Original image deleted: " + imagePath);
+                Log.d("SCREENOMICS_CAPTURE", "Temp image deleted: " + tempImagePath);
             } else {
-                Log.w("SCREENOMICS_CAPTURE", "Failed to delete original image: " + imagePath);
+                Log.w("SCREENOMICS_CAPTURE", "Failed to delete temp image: " + tempImagePath);
             }
         } catch (FileNotFoundException e) {
             Log.e("SCREENOMICS_CAPTURE", "Failed to save image: " + e.getMessage());
@@ -222,8 +213,12 @@ public class CaptureService extends Service {
             @Override
             public void run() {
                 android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
-                if (!capture) return;
+                if (!capture) {
+                    Log.d("SCREENOMICS_CAPTURE", "Capture disabled, skipping");
+                    return;
+                }
                 if (buffer != null && !mKeyguardManager.isKeyguardLocked()) {
+                    Log.d("SCREENOMICS_CAPTURE", "Taking screenshot and collecting metadata");
                     Bitmap bitmap = Bitmap.createBitmap(DISPLAY_WIDTH + rowPadding / pixelStride, DISPLAY_HEIGHT, Bitmap.Config.ARGB_8888);
                     bitmap.copyPixelsFromBuffer(buffer);
                     encryptImage(bitmap, "image");
@@ -274,14 +269,18 @@ public class CaptureService extends Service {
                     Log.d("SCREENOMICS Proc", "Top Package Name: " + topPackageName);
                     //Log.d("SCREENOMICS Proc", "Foreground Time: " + foregroundTime);
 
-                    if(topPackageName != ""){
+                    if(topPackageName != null && !topPackageName.isEmpty()){
                         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
                         String hash = prefs.getString("hash", "00000000").substring(0, 8);
+                        String keyRaw = prefs.getString("key", "");
+                        byte[] key = Converter.hexStringToByteArray(keyRaw);
                         Date date = new Date();
-                        long timestamp = date.getTime();
-                        String filename = "/" + hash + "_" + timestamp + "_metadata.json";
+
+                        // Generate IV first for filename
+                        byte[] iv = SecureFileUtils.generateSecureIV();
+                        String filename = "/" + SecureFileUtils.generateSecureFilename(hash, "metadata", "json", iv);
                         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-                        
+
                         Log.d("SCREENOMICS_CAPTURE", "Creating metadata file: " + filename);
                         Log.d("SCREENOMICS_CAPTURE", "Foreground app: " + topPackageName);
 
@@ -297,14 +296,29 @@ public class CaptureService extends Service {
 
                             Log.d(TAG, "Writing file contents: " + jsonString);
 
-                            File locationFile = new File(dir + "/images", filename);
+                            // Use temp file first
+                            File tempFile = new File(dir + "/temp_metadata.json");
 
-                            FileWriter writer = new FileWriter(locationFile);
+                            FileWriter writer = new FileWriter(tempFile);
                             BufferedWriter bufferedWriter = new BufferedWriter(writer);
                             bufferedWriter.write(jsonString);
                             bufferedWriter.close();
 
-                            encryptTextFile(filename);
+                            // Encrypt directly to final location
+                            String encryptPath = dir + "/encrypt" + filename;
+                            try {
+                                byte[] returnedIv = Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath);
+
+                                // Real-time upload after metadata creation
+                                UploadScheduler.uploadFileImmediately(getApplicationContext(), encryptPath);
+                            } catch (Exception encryptException) {
+                                Log.e("SCREENOMICS_CAPTURE", "Encryption failed for metadata", encryptException);
+                            }
+
+                            // Delete temp file
+                            if (tempFile.delete()) {
+                                Log.d("SCREENOMICS_CAPTURE", "Temp metadata file deleted");
+                            }
 
                         } catch (JSONException e) {
                             throw new RuntimeException(e);
@@ -312,8 +326,11 @@ public class CaptureService extends Service {
                             throw new RuntimeException(e);
                         }
                     }
+                } else {
+                    Log.d("SCREENOMICS_CAPTURE", "Skipping capture - buffer null or screen locked");
                 }
                 mHandler.postDelayed(captureInterval, 5000);
+                Log.d("SCREENOMICS_CAPTURE", "Scheduled next capture in 5 seconds");
             }
         };
 

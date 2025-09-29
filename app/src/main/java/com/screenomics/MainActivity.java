@@ -32,6 +32,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
+import androidx.activity.EdgeToEdge;
 import androidx.viewpager2.widget.ViewPager2;
 import android.app.AlertDialog;
 
@@ -89,6 +90,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Enable edge-to-edge display for Android 15+ compatibility
+        EdgeToEdge.enable(this);
+
         setContentView(R.layout.activity_main);
 
         // Firebase temporarily disabled - uncomment after setup
@@ -199,11 +204,8 @@ public class MainActivity extends AppCompatActivity {
         if (!f_image.exists()) f_image.mkdir();
         if (!f_encrypt.exists()) f_encrypt.mkdir();
 
-        // Setup automatic upload every 12 hours if enabled (default: enabled)
-        boolean autoUploadEnabled = prefs.getBoolean("autoUploadEnabled", true);
-        if (autoUploadEnabled) {
-            UploadScheduler.setupAutoUpload(this);
-        }
+        // Real-time upload enabled - files uploaded immediately after creation
+        Log.i("MainActivity", "Real-time upload enabled");
 
         ActivityResultLauncher<String[]> locationPermissionRequest =
                 registerForActivityResult(new ActivityResultContracts
@@ -311,9 +313,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }*/
 
-    private void createAlarm(){
-        final UploadScheduler alarm = new UploadScheduler(this);
-    }
 
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
