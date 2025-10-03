@@ -26,6 +26,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -90,7 +91,7 @@ public class UploadService extends Service {
         }
     }
 
-    private void sendNextBatch() {
+    private synchronized void sendNextBatch() {
         Log.d("SCREENOMICS_UPLOAD", "sendNextBatch called - Batches remaining: " + batches.size());
         if (batches.isEmpty()) {
             Log.d("SCREENOMICS_UPLOAD", "No more batches to send");
@@ -233,6 +234,12 @@ public class UploadService extends Service {
 
         LinkedList<File> fileList = new LinkedList<>(Arrays.asList(files));
 
+        // Clean up old format files before processing
+        int removedCount = cleanupOldFormatFiles(fileList);
+        if (removedCount > 0) {
+            Log.i("SCREENOMICS_UPLOAD", "Cleaned up " + removedCount + " old format files");
+        }
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         int batchSize = prefs.getInt("batchSize", Constants.BATCH_SIZE_DEFAULT);
         int maxToSend = prefs.getInt("maxSend", Constants.MAX_TO_SEND_DEFAULT);
@@ -317,5 +324,39 @@ public class UploadService extends Service {
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.notify(5, notification);
         return notification;
+    }
+
+    /**
+     * Clean up old format files that lack timestamp and IV
+     * Old format: {hash}_{random_hex}_{type}.{ext}
+     * New format: {hash}_{timestamp}_{type}_{iv}.{ext}
+     *
+     * @param fileList List of files to check
+     * @return Number of files removed
+     */
+    private int cleanupOldFormatFiles(LinkedList<File> fileList) {
+        int removedCount = 0;
+        Iterator<File> iterator = fileList.iterator();
+
+        while (iterator.hasNext()) {
+            File file = iterator.next();
+            String filename = file.getName();
+            String[] parts = filename.split("_");
+
+            // Valid new format has at least 4 parts and contains ISO8601 timestamp markers
+            boolean isOldFormat = parts.length < 4 || !filename.contains("T") || !filename.contains("-");
+
+            if (isOldFormat) {
+                Log.w("SCREENOMICS_UPLOAD", "Deleting old format file: " + filename);
+                if (file.delete()) {
+                    iterator.remove();
+                    removedCount++;
+                } else {
+                    Log.e("SCREENOMICS_UPLOAD", "Failed to delete old format file: " + filename);
+                }
+            }
+        }
+
+        return removedCount;
     }
 }

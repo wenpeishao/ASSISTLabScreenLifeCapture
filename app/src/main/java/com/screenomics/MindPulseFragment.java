@@ -328,7 +328,12 @@ public class MindPulseFragment extends Fragment {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         String hash = prefs.getString("hash", "00000000").substring(0, 8);
 
-        String filename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4");
+        // Generate IV for video file
+        byte[] videoIV = SecureFileUtils.generateSecureIV();
+        String filename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4", videoIV);
+
+        // Store IV in SharedPreferences for later encryption
+        prefs.edit().putString("currentVideoIV", SecureFileUtils.bytesToHex(videoIV)).apply();
         
         File videoDir = new File(requireContext().getExternalFilesDir(null), "videos");
         if (!videoDir.exists()) {
@@ -388,18 +393,29 @@ public class MindPulseFragment extends Fragment {
                 }
                 
                 String encryptedPath = encryptDir + File.separator + originalFile.getName();
-                
-                Encryptor.encryptFile(key, videoPath, encryptedPath);
-                
+
+                // Get the IV from SharedPreferences that was stored when filename was created
+                String ivHex = prefs.getString("currentVideoIV", "");
+                byte[] iv;
+                if (!ivHex.isEmpty()) {
+                    iv = Converter.hexStringToByteArray(ivHex);
+                } else {
+                    // Fallback if IV wasn't stored
+                    iv = SecureFileUtils.generateSecureIV();
+                }
+
+                // Use the IV that matches the filename
+                Encryptor.encryptFile(key, videoPath, encryptedPath, iv);
+
                 File encryptedFile = new File(encryptedPath);
                 long encryptedSize = encryptedFile.length();
                 Log.d(TAG, "Encrypted video file size: " + encryptedSize + " bytes");
-                
+
                 if (originalFile.delete()) {
                     Log.d(TAG, "Original video file deleted");
                 }
-                
-                Log.d(TAG, "Video encrypted and ready for upload");
+
+                Log.d(TAG, "Video encrypted and ready for 2-minute upload");
                 
             } catch (Exception e) {
                 Log.e(TAG, "Error encrypting video", e);
