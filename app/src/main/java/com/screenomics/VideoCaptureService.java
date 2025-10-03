@@ -204,11 +204,18 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
                 
                 String encryptedPath = encryptDir + File.separator + originalFile.getName();
                 
-                // Use the IV that matches the filename
-                byte[] returnedIv = Encryptor.encryptFile(key, videoPath, encryptedPath);
+                // Get the IV from SharedPreferences that was stored when filename was created
+                String ivHex = prefs.getString("currentVideoIV", "");
+                byte[] iv;
+                if (!ivHex.isEmpty()) {
+                    iv = Converter.hexStringToByteArray(ivHex);
+                } else {
+                    // Fallback if IV wasn't stored
+                    iv = SecureFileUtils.generateSecureIV();
+                }
 
-                // Real-time upload after video encryption
-                UploadScheduler.uploadFileImmediately(this, encryptedPath);
+                // Use the IV that matches the filename
+                Encryptor.encryptFile(key, videoPath, encryptedPath, iv);
 
                 if (originalFile.delete()) {
                     Log.d(TAG, "Original video file deleted");

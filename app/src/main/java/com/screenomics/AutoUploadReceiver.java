@@ -13,9 +13,15 @@ public class AutoUploadReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.i(TAG, "Auto upload alarm triggered");
+        long currentTime = System.currentTimeMillis();
+        Log.i(TAG, "Auto upload alarm triggered at: " + currentTime);
 
         // Delegate to UploadScheduler to handle the upload
         UploadScheduler.handleAutoUpload(context);
+
+        // Reschedule the next alarm for continuous 2-minute intervals
+        // This is needed because setExactAndAllowWhileIdle only triggers once
+        UploadScheduler.setupAutoUpload(context);
+        Log.i(TAG, "Next upload scheduled for 2 minutes from now");
     }
 }
