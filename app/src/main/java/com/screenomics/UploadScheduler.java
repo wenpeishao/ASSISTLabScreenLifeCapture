@@ -113,13 +113,31 @@ public class UploadScheduler {
         long intervalMillis = 2 * 60 * 1000; // 2 minutes
         long triggerAtMillis = SystemClock.elapsedRealtime() + intervalMillis;
 
+        android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Scheduling alarm: interval=" + intervalMillis + "ms, triggerAt=" + triggerAtMillis);
+
         if (alarmManager != null) {
-            alarmManager.setRepeating(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                triggerAtMillis,
-                intervalMillis,
-                pendingIntent
-            );
+            // Cancel any existing alarm first
+            alarmManager.cancel(pendingIntent);
+
+            // Use exact alarms for precise timing - setExactAndAllowWhileIdle is more reliable
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Android 6+ - use exact alarm that works even in doze mode
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
+                android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Using setExactAndAllowWhileIdle for precise timing");
+            } else {
+                // Older Android - use regular repeating alarm
+                alarmManager.setRepeating(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAtMillis,
+                    intervalMillis,
+                    pendingIntent
+                );
+                android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Using setRepeating for older Android");
+            }
         }
 
         android.util.Log.i("SCREENOMICS_AUTO_UPLOAD", "Auto upload scheduled every 2 minutes using AlarmManager");
