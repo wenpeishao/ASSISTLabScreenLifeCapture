@@ -83,6 +83,7 @@ public class CaptureService extends Service {
     private static int pixelStride;
     private static int rowPadding;
     private static boolean capture = false;
+    private boolean mInitializing = false;
 
     private ActivityManager mActivityManager;
 
@@ -151,17 +152,14 @@ public class CaptureService extends Service {
 
             try {
                 Log.d("SCREENOMICS_CAPTURE", "Encrypting file to: " + encryptPath);
-                // Encrypt with pre-generated IV
-                byte[] returnedIv = Encryptor.encryptFile(key, tempImagePath, encryptPath);
+                // Encrypt with pre-generated IV that matches filename
+                Encryptor.encryptFile(key, tempImagePath, encryptPath, iv);
                 Log.i("SCREENOMICS_CAPTURE", "Encryption completed successfully");
                 Log.d("SCREENOMICS_CAPTURE", "Encrypted file size: " + new File(encryptPath).length() + " bytes");
             } catch (Exception e) {
                 Log.e("SCREENOMICS_CAPTURE", "Encryption failed: " + e.getMessage());
                 e.printStackTrace();
             }
-
-            // Real-time upload after screenshot creation
-            UploadScheduler.uploadFileImmediately(this, encryptPath);
 
             File f = new File(tempImagePath);
             if (f.delete()) {
@@ -187,14 +185,20 @@ public class CaptureService extends Service {
     private class MediaProjectionCallback extends MediaProjection.Callback {
         @Override
         public void onStop() {
-            Log.e(TAG, "I'm stopped");
+            Log.e(TAG, "MediaProjection stopped by system");
             try {
-                //stopCapturing();
+                capture = false;
+                mHandler.removeCallbacksAndMessages(null);
                 destroyImageReader();
+                destroyVirtualDisplay();
+                // Clear the reference since projection is no longer valid
+                mMediaProjection = null;
+                mInitializing = false;
+                Log.w(TAG, "MediaProjection invalidated, cleared state");
             } catch (RuntimeException e) {
+                Log.e(TAG, "Error handling MediaProjection stop", e);
                 e.printStackTrace();
             }
-
         }
     }
 
@@ -304,13 +308,10 @@ public class CaptureService extends Service {
                             bufferedWriter.write(jsonString);
                             bufferedWriter.close();
 
-                            // Encrypt directly to final location
+                            // Encrypt directly to final location with the IV from filename
                             String encryptPath = dir + "/encrypt" + filename;
                             try {
-                                byte[] returnedIv = Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath);
-
-                                // Real-time upload after metadata creation
-                                UploadScheduler.uploadFileImmediately(getApplicationContext(), encryptPath);
+                                Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath, iv);
                             } catch (Exception encryptException) {
                                 Log.e("SCREENOMICS_CAPTURE", "Encryption failed for metadata", encryptException);
                             }
@@ -377,6 +378,25 @@ public class CaptureService extends Service {
         }
 
         createNotificationChannel();
+
+        // Check if MediaProjection already exists to avoid re-using token
+        if (mMediaProjection != null) {
+            Log.w(TAG, "MediaProjection already exists, skipping initialization");
+            if (capture) {
+                Log.d(TAG, "Already capturing, nothing to do");
+                return START_REDELIVER_INTENT;
+            }
+            startCapturing();
+            return START_REDELIVER_INTENT;
+        }
+
+        // Prevent multiple initialization attempts
+        if (mInitializing) {
+            Log.w(TAG, "Already initializing MediaProjection, ignoring duplicate request");
+            return START_REDELIVER_INTENT;
+        }
+
+        // Create notification
         Intent notificationIntent = new Intent(this, MainActivity.class);
         int intentflags;
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
@@ -386,13 +406,7 @@ public class CaptureService extends Service {
         }
 
         PendingIntent pendingIntent = PendingIntent.getActivity(this,0, notificationIntent, intentflags);
-        /*Notification notification = new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.dna)
-                .setContentTitle("ScreenLife Capture is running!")
-                .setContentText("If this notification disappears, please re-enable it from the application!")
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .build();*/
+
         Notification notification = null;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             notification = new Notification.Builder(this, CHANNEL_ID)
@@ -403,47 +417,37 @@ public class CaptureService extends Service {
                     .build();
         }
 
+        // MUST call startForeground first before getMediaProjection
         Log.i(TAG, "Starting foreground service");
-        /*if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        }else{
-            startForeground(1, notification);
-        }*/
-
         ServiceCompat.startForeground(this,1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        // getting crash reports about:
-        //Media projections require a foreground service of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-        // the supposed solution is to delay the call to getMediaProjection after startForeground
-  /*      projection = new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "Projection");
-                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
-                mMediaProjectionCallback = new MediaProjectionCallback();
-                mMediaProjection.registerCallback(mMediaProjectionCallback, null);
 
-            }
-        };
-        mHandler.postDelayed(projection, 1000);
-*/
+        // Now get MediaProjection after service is in foreground
+        mInitializing = true;
         mHandler.postDelayed( new Runnable(){
             @Override
             public void run(){
-                mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
-                mMediaProjectionCallback = new MediaProjectionCallback();
-                mMediaProjection.registerCallback(mMediaProjectionCallback, null);
-                createVirtualDisplay();
-                startCapturing();
+                try {
+                    mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
+                    if (mMediaProjection == null) {
+                        Log.e(TAG, "Failed to get MediaProjection");
+                        mInitializing = false;
+                        stopSelf();
+                        return;
+                    }
+                    mMediaProjectionCallback = new MediaProjectionCallback();
+                    mMediaProjection.registerCallback(mMediaProjectionCallback, null);
+                    createVirtualDisplay();
+                    startCapturing();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to initialize MediaProjection", e);
+                    stopSelf();
+                } finally {
+                    mInitializing = false;
+                }
             }
 
         }, 750);
 
-        /*mMediaProjection = mProjectionManager.getMediaProjection(resultCode, intent);
-        mMediaProjectionCallback = new MediaProjectionCallback();
-        mMediaProjection.registerCallback(mMediaProjectionCallback, null);
-
-        createVirtualDisplay();
-        startCapturing();*/
         return START_REDELIVER_INTENT;
     }
 
@@ -463,11 +467,34 @@ public class CaptureService extends Service {
     }
 
     private void createVirtualDisplay() {
-        if (mMediaProjection != null) {
-            //mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, ImageFormat.FLEX_RGB_888, 2);
+        if (mMediaProjection == null) {
+            Log.e(TAG, "Cannot create VirtualDisplay: MediaProjection is null");
+            return;
+        }
+
+        if (mVirtualDisplay != null) {
+            Log.w(TAG, "VirtualDisplay already exists, skipping creation");
+            return;
+        }
+
+        try {
             mImageReader = ImageReader.newInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, PixelFormat.RGBA_8888, 5);
-            mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG, DISPLAY_WIDTH, DISPLAY_HEIGHT, screenDensity, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mImageReader.getSurface(), null, null);
+            mVirtualDisplay = mMediaProjection.createVirtualDisplay(
+                TAG, DISPLAY_WIDTH, DISPLAY_HEIGHT, screenDensity,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                mImageReader.getSurface(), null, null
+            );
             mImageReader.setOnImageAvailableListener(new ImageAvailableListener(), mBackgroundHandler);
+            Log.i(TAG, "VirtualDisplay created successfully");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Failed to create VirtualDisplay: MediaProjection token invalid or expired", e);
+            // Clean up invalid state
+            mMediaProjection = null;
+            mInitializing = false;
+            if (mImageReader != null) {
+                mImageReader.close();
+                mImageReader = null;
+            }
         }
     }
 
@@ -522,6 +549,7 @@ public class CaptureService extends Service {
             mMediaProjection.stop();
             mMediaProjection = null;
         }
+        mInitializing = false;
         Log.i(TAG, "MediaProjection stopped");
 
         int intentflags;

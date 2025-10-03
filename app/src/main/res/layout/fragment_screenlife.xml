@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white_isabelline"
+    android:fillViewport="true">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center_horizontal"
     android:padding="8dp">
@@ -70,28 +75,65 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:layout_marginHorizontal="16dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_marginHorizontal="12dp"
+            android:padding="16dp"
+            android:orientation="vertical">
 
             <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Use Mobile Data if no WiFi?"
-                android:textColor="#212121"
-                android:textSize="12sp"
-                android:layout_marginEnd="8dp" />
-
-            <Switch
-                android:id="@+id/mobileDataSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:showText="true"
-                android:textOff="No"
-                android:textOn="Yes"
-                android:thumb="@drawable/switch_thumb"
-                android:track="@drawable/switch_track" />
+                android:text="Network Settings"
+                android:textColor="#1A1A1A"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Use Mobile Data"
+                        android:textColor="#212121"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Allow uploads when WiFi unavailable"
+                        android:textColor="#666666"
+                        android:textSize="11sp"
+                        android:layout_marginTop="2dp" />
+
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/mobileDataSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:showText="true"
+                    android:textOff="No"
+                    android:textOn="Yes"
+                    android:thumb="@drawable/switch_thumb"
+                    android:track="@drawable/switch_track"
+                    android:thumbTextPadding="4dp"
+                    android:backgroundTint="@color/light_sea_green"
+                    android:buttonTint="@color/sea_green"
+                    android:switchMinWidth="36dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -265,3 +307,5 @@
             android:text="Update QR Code" />
 
     </LinearLayout>
+
+</ScrollView>

@@ -25,14 +25,11 @@ import javax.crypto.spec.SecretKeySpec;
 class Encryptor {
     /**
      * Encrypt file using AES-256-CBC with PKCS5 padding
-     * Returns the IV used for encryption (needed for filename)
+     * Uses provided IV for encryption (must match filename)
      */
-    static byte[] encryptFile(byte[] key, String inPath, String outPath) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+    static void encryptFile(byte[] key, String inPath, String outPath, byte[] ivBytes) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
         FileInputStream fis = new FileInputStream(inPath);
         FileOutputStream fos = new FileOutputStream(outPath);
-
-        // Generate secure 16-byte IV for AES-256-CBC
-        byte[] ivBytes = SecureFileUtils.generateSecureIV();
 
         System.out.println("ENCRYPTING WITH KEY " + toHex(key));
         System.out.println("ENCRYPTING WITH IV " + toHex(ivBytes));
@@ -53,8 +50,6 @@ class Encryptor {
         cos.flush();
         cos.close();
         fis.close();
-
-        return ivBytes;
     }
 
     /**

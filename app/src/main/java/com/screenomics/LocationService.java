@@ -147,13 +147,10 @@ public class LocationService extends Service {
                 bufferedWriter.write(jsonString);
                 bufferedWriter.close();
 
-                // Encrypt directly to final location
+                // Encrypt directly to final location with the IV from filename
                 String encryptPath = dir + "/encrypt" + filename;
                 try {
-                    byte[] returnedIv = Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath);
-
-                    // Real-time upload after GPS data creation
-                    UploadScheduler.uploadFileImmediately(getApplicationContext(), encryptPath);
+                    Encryptor.encryptFile(key, tempFile.getAbsolutePath(), encryptPath, iv);
                 } catch (Exception encryptException) {
                     Log.e(TAG, "Encryption failed for GPS data", encryptException);
                 }
@@ -238,7 +235,9 @@ public class LocationService extends Service {
             //fos = new FileOutputStream(dir + "/images" + filename);
 
             try{
-                byte[] returnedIv = Encryptor.encryptFile(key, dir + "/images" + filename, dir + "/encrypt" + filename);
+                // Generate IV for legacy encryption (needs cleanup)
+                byte[] iv = SecureFileUtils.generateSecureIV();
+                Encryptor.encryptFile(key, dir + "/images" + filename, dir + "/encrypt" + filename, iv);
             } catch (Exception e) {
                 e.printStackTrace();
             }

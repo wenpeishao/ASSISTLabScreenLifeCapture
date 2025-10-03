@@ -14,6 +14,7 @@ import android.content.pm.PackageManager;
 import android.Manifest;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
@@ -56,6 +57,10 @@ public class ScreenLifeFragment extends Fragment {
     private View locationPermissionDot;
     private View usageAccessDot;
     private View notificationPermissionDot;
+
+    private boolean justStartedCapture = false;
+    private Handler captureCheckHandler = new Handler();
+    private Runnable captureCheckRunnable;
 
     private BroadcastReceiver resetCaptureReceiver = new BroadcastReceiver() {
         @Override
@@ -108,12 +113,15 @@ public class ScreenLifeFragment extends Fragment {
             if (!buttonView.isPressed()) return;
             if (isChecked) {
                 Log.d("ScreenLifeFragment", "User turned switch ON - starting capture");
+                justStartedCapture = true;  // Mark that user just started it
                 editor.putBoolean("recordingState", true);
                 editor.apply();
                 ((MainActivity) requireActivity()).startLocationService();
                 ((MainActivity) requireActivity()).startMediaProjectionRequest();
                 captureState.setText(getResources().getString(R.string.capture_state_on));
                 captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.light_sea_green));
+                // Reset flag after some time
+                captureCheckHandler.postDelayed(() -> justStartedCapture = false, 5000);
             } else {
                 Log.d("ScreenLifeFragment", "User turned switch OFF - stopping capture");
                 editor.putBoolean("recordingState", false);
@@ -205,6 +213,28 @@ public class ScreenLifeFragment extends Fragment {
             Log.d("ScreenLifeFragment", "Setting switch to ON - capture is active");
             captureState.setText(getResources().getString(R.string.capture_state_on));
             captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.light_sea_green));
+
+            // Check if CaptureService needs restarting, but delay to allow service binding
+            // Skip if user just manually started it (to avoid double permission request)
+            if (!justStartedCapture) {
+                captureCheckRunnable = () -> {
+                    if (getActivity() == null) return;  // Fragment detached
+                    MainActivity mainActivity = (MainActivity) requireActivity();
+                    if (!mainActivity.isCaptureServiceRunning()) {
+                        Log.w("ScreenLifeFragment", "CaptureService not running after delay - may have been killed");
+                        // Only restart if user hasn't changed the switch in the meantime
+                        SharedPreferences currentPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+                        boolean stillRecording = currentPrefs.getBoolean("recordingState", false);
+                        if (stillRecording) {
+                            Log.i("ScreenLifeFragment", "Restarting CaptureService");
+                            mainActivity.startMediaProjectionRequest();
+                        }
+                    }
+                };
+                captureCheckHandler.postDelayed(captureCheckRunnable, 2000);
+            } else {
+                Log.d("ScreenLifeFragment", "Skipping service check - user just started capture");
+            }
         } else {
             Log.d("ScreenLifeFragment", "Setting switch to OFF - capture is inactive");
             captureState.setText(getResources().getString(R.string.capture_state_off));
@@ -221,6 +251,11 @@ public class ScreenLifeFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
+
+        // Cancel any pending service checks
+        if (captureCheckRunnable != null) {
+            captureCheckHandler.removeCallbacks(captureCheckRunnable);
+        }
 
         // Unregister broadcast receiver
         try {

@@ -84,6 +84,8 @@ public class MainActivity extends AppCompatActivity {
     private LocationService locationService;
 
     private WorkManager mWorkManager;
+    private CaptureService captureService;
+    private boolean captureServiceBound = false;
 
     public boolean continueWithoutWifi = false;
 
@@ -155,6 +157,10 @@ public class MainActivity extends AppCompatActivity {
         DisplayMetrics metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
         mScreenDensity = metrics.densityDpi;
+
+        // Start auto upload every 2 minutes
+        UploadScheduler.setupAutoUpload(this);
+        Log.i("SCREENOMICS_MAIN", "Auto upload initialized on app start");
 
         // Initialize UI components
         infoButton = findViewById(R.id.infoButton);
@@ -318,11 +324,16 @@ public class MainActivity extends AppCompatActivity {
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            // Service connection maintained for fragments to use if needed
+            CaptureService.LocalBinder binder = (CaptureService.LocalBinder) iBinder;
+            captureService = binder.getService();
+            captureServiceBound = true;
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName componentName) { }
+        public void onServiceDisconnected(ComponentName componentName) {
+            captureServiceBound = false;
+            captureService = null;
+        }
     };
 
     private final ServiceConnection uploaderServiceConnection = new ServiceConnection() {
@@ -490,6 +501,10 @@ public class MainActivity extends AppCompatActivity {
     public void stopCaptureService() {
         Intent serviceIntent = new Intent(this, CaptureService.class);
         stopService(serviceIntent);
+    }
+
+    public boolean isCaptureServiceRunning() {
+        return captureServiceBound && captureService != null && captureService.isCapturing();
     }
 
     private void resetCaptureState() {
