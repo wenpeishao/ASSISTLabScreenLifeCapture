@@ -53,6 +53,7 @@ import com.google.zxing.common.HybridBinarizer;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -66,9 +67,10 @@ import android.util.Base64;
 public class RegisterActivity extends AppCompatActivity {
     private static final String TAG = "RegisterActivity";
 
+    // Point to your Receiver base (also saved into SharedPreferences as base_url)
     private static final String RECEIVER_BASE = "https://mindpulse.ssc.wisc.edu";
-    private static final String ENROLL_PATH  = "/api/v1/enroll";
-    private static final String HEALTH_PATH  = "/api/v1/health";
+    private static final String ENROLL_PATH   = "/api/v1/enroll";
+    private static final String HEALTH_PATH   = "/api/v1/health";
 
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
     private static final String KEYSTORE_ALIAS   = "mindpulse_client_key";
@@ -76,8 +78,8 @@ public class RegisterActivity extends AppCompatActivity {
     private static final MediaType JSON_MEDIA = MediaType.parse("application/json; charset=utf-8");
     private OkHttpClient http;
 
-    private String key;
-    private String hash;
+    private String key;   // user-entered/QR code (short 8 or long token)
+    private String hash;  // SHA-256 of key (hex) used for UI verification
 
     private PreviewView previewView;
     private Button continueButton;
@@ -244,6 +246,7 @@ public class RegisterActivity extends AppCompatActivity {
         continueButton.setText("Enrolling…");
 
         new Thread(() -> {
+            // optional health check to warm up TLS, etc.
             try {
                 Request health = new Request.Builder()
                         .url(RECEIVER_BASE + HEALTH_PATH)
@@ -251,6 +254,7 @@ public class RegisterActivity extends AppCompatActivity {
                 http.newCall(health).execute().close();
             } catch (Exception ignored) {}
 
+            // prepare signing public key
             String clientPubPem;
             try {
                 clientPubPem = getOrCreateClientPublicKeyPem();
@@ -263,22 +267,30 @@ public class RegisterActivity extends AppCompatActivity {
                 return;
             }
 
+            // build JSON body
             JSONObject body = new JSONObject();
+            boolean longToken = (code.length() >= 40 && code.length() <= 60);
             try {
                 body.put("client_public_key", clientPubPem);
-                if (code.length() >= 40 && code.length() <= 60) {
+                if (longToken) {
                     String shortCode = toHexString(getSHA(code)).substring(0, 8);
                     body.put("enrollment_token", code);
                     body.put("short_code", shortCode);
-                } else if (code.length() == 8) {
+                } else { // short code only
                     body.put("short_code", code);
                 }
             } catch (JSONException | NoSuchAlgorithmException ignored) {}
 
-            Request req = new Request.Builder()
+            // request with optional Authorization: Bearer <token> for long tokens
+            Request.Builder rb = new Request.Builder()
                     .url(RECEIVER_BASE + ENROLL_PATH)
-                    .post(RequestBody.create(body.toString(), JSON_MEDIA))
-                    .build();
+                    .post(RequestBody.create(body.toString(), JSON_MEDIA));
+
+            if (longToken) {
+                rb.addHeader("Authorization", "Bearer " + code);
+            }
+
+            Request req = rb.build();
 
             try (Response resp = http.newCall(req).execute()) {
                 if (!resp.isSuccessful()) {
@@ -293,17 +305,28 @@ public class RegisterActivity extends AppCompatActivity {
 
                 String json = resp.body() != null ? resp.body().string() : "{}";
                 JSONObject obj = new JSONObject(json);
-                String pptId = obj.optString("ppt_id", "");
-                String studyId = obj.optString("study_id", "");
+                String pptId       = obj.optString("ppt_id", "");
+                String studyId     = obj.optString("study_id", "");
                 String imagePubPem = obj.optString("image_public_key", "");
 
+                // persist for later uploads
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                 SharedPreferences.Editor ed = prefs.edit();
                 ed.putString("ppt_id", pptId);
                 ed.putString("study_id", studyId);
-                ed.putString("image_public_key_pem", imagePubPem);
+                ed.putString("image_public_key", imagePubPem); // new key name used by Batch
+                ed.putString("base_url", RECEIVER_BASE);
                 ed.putString("key", key);
                 ed.putString("hash", hash);
+
+                if (longToken) {
+                    ed.putString("enrollment_token", code);
+                } else {
+                    ed.remove("enrollment_token");
+                }
+
+                // remove any legacy key name
+                ed.remove("image_public_key_pem");
                 ed.apply();
 
                 runOnUiThread(() -> {
@@ -328,7 +351,7 @@ public class RegisterActivity extends AppCompatActivity {
         KeyStore ks = KeyStore.getInstance(ANDROID_KEYSTORE);
         ks.load(null);
 
-        // --- Always delete old alias to force new key with correct paddings ---
+        // Always delete old alias to force new key with correct paddings
         if (ks.containsAlias(KEYSTORE_ALIAS)) {
             Log.w(TAG, "Deleting existing key alias to regenerate with both paddings");
             ks.deleteEntry(KEYSTORE_ALIAS);
@@ -356,8 +379,7 @@ public class RegisterActivity extends AppCompatActivity {
             return exportPublicKeyPem(kp.getPublic());
         } catch (Exception ex) {
             Log.e(TAG, "❌ AndroidKeyStore key generation failed, falling back to software key: " + ex.getMessage());
-
-            // ---- Fallback: generate an in-memory software keypair ----
+            // Fallback: generate an in-memory software keypair
             KeyPairGenerator softGen = KeyPairGenerator.getInstance("RSA");
             softGen.initialize(2048);
             KeyPair kp = softGen.generateKeyPair();
@@ -374,7 +396,6 @@ public class RegisterActivity extends AppCompatActivity {
             sb.append(b64, i, Math.min(i + 64, b64.length())).append("\n");
         return "-----BEGIN PUBLIC KEY-----\n" + sb.toString().trim() + "\n-----END PUBLIC KEY-----";
     }
-
 
     private byte[] getSHA(String input) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
