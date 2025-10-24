@@ -84,6 +84,12 @@ class Encryptor {
         return md.digest(input.getBytes(StandardCharsets.UTF_8));
     }
 
+    static byte[] deriveAesKeyFromToken(String token) throws NoSuchAlgorithmException {
+        // Hash the enrollment token (any length) into a 32-byte AES key
+        MessageDigest sha = MessageDigest.getInstance("SHA-256");
+        return sha.digest(token.getBytes(StandardCharsets.UTF_8));
+    }
+
     private static final String HEX_DIGITS = "0123456789abcdef";
     public static String toHex(byte[] data) {
         StringBuffer buf = new StringBuffer();
