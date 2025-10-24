@@ -119,7 +119,13 @@ public class LocationService extends Service {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
             String hash = prefs.getString("hash", "00000000").substring(0, 8);
             String keyRaw = prefs.getString("key", "");
-            byte[] key = Converter.hexStringToByteArray(keyRaw);
+            byte[] key;
+            try {
+                key = Encryptor.deriveAesKeyFromToken(keyRaw);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to derive AES key from token", e);
+                return;
+            }
             Date date = new Date();
 
             // Generate IV first for filename

@@ -91,7 +91,7 @@ public class SenderWorker extends Worker {
                 numToUpload ++;
                 nextBatch.add(fileList.remove());
             }
-            Batch batch = new Batch(nextBatch, client);
+            Batch batch = new Batch(getApplicationContext(), nextBatch, client);
             batches.add(batch);
         }
 
@@ -110,7 +110,7 @@ public class SenderWorker extends Worker {
             String code = response[0];
             String body = response[1];
             
-            if (code.equals("201")) {
+            if (code.equals("201") || code.equals("200")) {
                 successCount += batch.size();
                 Log.i("SCREENOMICS_WORKER", "Batch " + (i + 1) + " uploaded successfully. Response: " + body);
                 Logger.i(context, "SenderWorker: Upload success for " + batch.size() + " files. Server msg: " + body);

@@ -78,7 +78,7 @@ public class UploadService extends Service {
                 String code = response[0];
                 String body = response[1];
                 Log.d("SCREENOMICS_UPLOAD", "Sender AsyncTask received response code: " + code);
-                if (code.equals("201")) {
+                if (code.equals("201") || code.equals("200")) {
                     batches[0].deleteFiles();
                     sendSuccessful(batches[0], body);
                 } else {
@@ -258,7 +258,7 @@ public class UploadService extends Service {
                 numToUpload ++;
                 nextBatch.add(file);
             }
-            Batch batch = new Batch(nextBatch, client);
+            Batch batch = new Batch(this, nextBatch, client);
             batches.add(batch);
             Log.d("SCREENOMICS_UPLOAD", "Created batch " + batches.size() + " with " + nextBatch.size() + " files");
         }
