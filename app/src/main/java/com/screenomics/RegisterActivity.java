@@ -2,12 +2,9 @@ package com.screenomics;
 
 import android.Manifest;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.preference.PreferenceManager;
@@ -26,86 +23,74 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.common.util.concurrent.ListenableFuture;
-
 import android.util.Size;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
-import java.io.IOException;
+
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import java.security.PublicKey;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
+
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 
-public class RegisterActivity extends AppCompatActivity {
-    private static final int PERMISSION_REQUEST_CAMERA = 0;
-    private static final int PERMISSION_REQUEST_CAM_NOTIF = 1;
-    private String key;
-    private String hash;
-    private PreviewView previewView;
-    private Button errorButton;
-    private Button continueButton;
-    private Button manualEntryButton;
-    private Button uploadFromGalleryButton;
-    private Button skipForTestingButton;
-    private View permissionOverlay;
-    private View alternativeOptions;
-    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+
+public class RegisterActivity extends AppCompatActivity {
+    private static final String TAG = "RegisterActivity";
+
+    // Point to your Receiver base (also saved into SharedPreferences as base_url)
+    private static final String RECEIVER_BASE = "https://mindpulse.ssc.wisc.edu";
+    private static final String ENROLL_PATH   = "/api/v1/enroll";
+    private static final String HEALTH_PATH   = "/api/v1/health";
+
+    private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
+    private static final String KEYSTORE_ALIAS   = "mindpulse_client_key";
+
+    private static final MediaType JSON_MEDIA = MediaType.parse("application/json; charset=utf-8");
+    private OkHttpClient http;
+
+    private String key;   // user-entered/QR code (short 8 or long token)
+    private String hash;  // SHA-256 of key (hex) used for UI verification
+
+    private PreviewView previewView;
+    private Button continueButton;
+    private View permissionOverlay;
+    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ActivityResultLauncher<String> imagePickerLauncher;
-// passphrase:  uwscreenomics022
+
     @Override
     protected void onResume() {
         super.onResume();
-        // Check camera permission when returning from settings
-        // Add small delay to ensure permission state is updated
-        previewView.post(() -> {
-            checkAndStartCamera();
-        });
-    }
-
-    private void checkAndStartCamera() {
-        boolean hasPermission = PermissionHelper.hasPermission(this, Manifest.permission.CAMERA);
-        Log.d("RegisterActivity", "checkAndStartCamera - hasPermission: " + hasPermission);
-
-        if (hasPermission) {
-            if (permissionOverlay != null) {
-                permissionOverlay.setVisibility(View.GONE);
-                Log.d("RegisterActivity", "Permission overlay hidden");
-            }
-            // Always try to start camera when permission is available
-            // This handles cases where user grants permission from settings
-            if (cameraProviderFuture != null && previewView != null) {
-                Log.d("RegisterActivity", "Starting camera...");
-                startCamera();
-            } else {
-                Log.w("RegisterActivity", "Camera provider or preview view is null");
-            }
-        } else {
-            // Show overlay if permission not granted
-            if (permissionOverlay != null) {
-                permissionOverlay.setVisibility(View.VISIBLE);
-                Log.d("RegisterActivity", "Permission overlay shown");
-            }
-        }
+        if (previewView != null) previewView.post(this::checkAndStartCamera);
     }
 
     @Override
@@ -113,245 +98,77 @@ public class RegisterActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.register);
 
-        // Check if this is an update operation
-        boolean isUpdate = getIntent().getBooleanExtra("isUpdate", false);
-        Log.d("RegisterActivity", "onCreate - isUpdate: " + isUpdate);
+        http = HttpClientProvider.get(this); // includes HttpSignatureInterceptor
 
-        if (isUpdate) {
-            // Hide the skip for testing button when updating
-            View skipButton = findViewById(R.id.skipForTestingButton);
-            if (skipButton != null) {
-                skipButton.setVisibility(View.GONE);
-                Log.d("RegisterActivity", "Skip button hidden for update mode");
-            }
-        }
-
-        // Initialize image picker launcher
         imagePickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri != null) {
-                    processQRImageFromGallery(uri);
-                }
-            }
+                new ActivityResultContracts.GetContent(),
+                uri -> { if (uri != null) processQRImageFromGallery(uri); }
         );
 
         previewView = findViewById(R.id.activity_main_previewView);
         permissionOverlay = findViewById(R.id.camera_permission_overlay);
-        alternativeOptions = findViewById(R.id.alternativeOptions);
-
-        errorButton = findViewById(R.id.errorButton);
-        errorButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showDialog();
-            }
-        });
 
         continueButton = findViewById(R.id.continueButton);
-        continueButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                commitSharedPreferences();
-                Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
-                RegisterActivity.this.startActivity(intent);
-                finish();
+        continueButton.setOnClickListener(v -> {
+            if (key == null || !(key.length() == 8 || (key.length() >= 40 && key.length() <= 60))) {
+                Toast.makeText(this, "Scan or enter a valid 8- or 40–60-character code.", Toast.LENGTH_SHORT).show();
+                return;
             }
+            enrollWithReceiver(key);
         });
 
-        manualEntryButton = findViewById(R.id.manualEntryButton);
-        manualEntryButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showManualInputDialog();
-            }
-        });
+        Button manualEntryButton = findViewById(R.id.manualEntryButton);
+        manualEntryButton.setOnClickListener(v -> showManualInputDialog());
 
-        uploadFromGalleryButton = findViewById(R.id.uploadFromGalleryButton);
-        uploadFromGalleryButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                openImagePicker();
-            }
-        });
+        Button uploadFromGalleryButton = findViewById(R.id.uploadFromGalleryButton);
+        uploadFromGalleryButton.setOnClickListener(v -> openImagePicker());
 
-        skipForTestingButton = findViewById(R.id.skipForTestingButton);
-        skipForTestingButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                generateTestId();
-            }
-        });
-
-        // Setup permission overlay buttons
         Button grantPermissionButton = findViewById(R.id.grant_permission_button);
-        Button manualEntryOverlayButton = findViewById(R.id.manual_entry_button);
-
-        if (grantPermissionButton != null) {
-            grantPermissionButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    requestCamera(); // Use the centralized method
-                }
-            });
-        }
-
-        if (manualEntryOverlayButton != null) {
-            manualEntryOverlayButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    showManualInputDialog();
-                }
-            });
-        }
+        if (grantPermissionButton != null)
+            grantPermissionButton.setOnClickListener(v -> requestCamera());
 
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         requestCamera();
     }
 
-    private void showDialog() {
-        showManualInputDialog();
+    private void checkAndStartCamera() {
+        boolean hasPermission = PermissionHelper.hasPermission(this, Manifest.permission.CAMERA);
+        if (hasPermission) {
+            if (permissionOverlay != null) permissionOverlay.setVisibility(View.GONE);
+            if (cameraProviderFuture != null && previewView != null) startCamera();
+        } else if (permissionOverlay != null) {
+            permissionOverlay.setVisibility(View.VISIBLE);
+        }
     }
-
-    private void showManualInputDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Manual Code Entry");
-        builder.setMessage("If you have your registration code, you can enter it manually below.\n\n" +
-                          "The code should be 64 characters long.");
-
-        // Create a custom layout for better UX
-        final EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        input.setHint("Enter your 64-character code");
-        builder.setView(input);
-
-        builder.setPositiveButton("Submit", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String m_Text = input.getText().toString().trim();
-                if (m_Text.length() == 64) {
-                    setQR(m_Text);
-                } else {
-                    Toast.makeText(RegisterActivity.this,
-                        "Invalid code length. Code must be exactly 64 characters.",
-                        Toast.LENGTH_LONG).show();
-                    showManualInputDialog(); // Show dialog again
-                }
-            }
-        });
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.cancel();
-                // Try camera again
-                requestCamera();
-            }
-        });
-        builder.setCancelable(false);
-        builder.show();
-    }
-
 
     private void requestCamera() {
         PermissionHelper.requestPermissionWithExplanation(
-            this,
-            Manifest.permission.CAMERA,
-            PermissionHelper.PERMISSION_REQUEST_CAMERA,
-            new PermissionHelper.PermissionCallback() {
-                @Override
-                public void onPermissionGranted() {
-                    if (permissionOverlay != null) {
-                        permissionOverlay.setVisibility(View.GONE);
-                    }
-                    startCamera();
-                }
-
-                @Override
-                public void onPermissionDenied() {
-                    if (permissionOverlay != null) {
-                        permissionOverlay.setVisibility(View.VISIBLE);
-                    }
-                    showManualInputDialog();
-                }
-
-                @Override
-                public void onPermissionPermanentlyDenied() {
-                    if (permissionOverlay != null) {
-                        permissionOverlay.setVisibility(View.VISIBLE);
-                    }
-                }
-            }
-        );
-
-        // Show overlay initially if permission not granted
-        if (!PermissionHelper.hasPermission(this, Manifest.permission.CAMERA)) {
-            if (permissionOverlay != null) {
-                permissionOverlay.setVisibility(View.VISIBLE);
-            }
-        }
-    }
-
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == PermissionHelper.PERMISSION_REQUEST_CAMERA) {
-            boolean cameraGranted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-
-            PermissionHelper.handlePermissionResult(
                 this,
                 Manifest.permission.CAMERA,
-                cameraGranted,
+                PermissionHelper.PERMISSION_REQUEST_CAMERA,
                 new PermissionHelper.PermissionCallback() {
-                    @Override
-                    public void onPermissionGranted() {
-                        if (permissionOverlay != null) {
-                            permissionOverlay.setVisibility(View.GONE);
-                        }
+                    @Override public void onPermissionGranted() {
+                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.GONE);
                         startCamera();
                     }
-
-                    @Override
-                    public void onPermissionDenied() {
-                        if (permissionOverlay != null) {
-                            permissionOverlay.setVisibility(View.VISIBLE);
-                        }
+                    @Override public void onPermissionDenied() {
+                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.VISIBLE);
                     }
-
-                    @Override
-                    public void onPermissionPermanentlyDenied() {
-                        if (permissionOverlay != null) {
-                            permissionOverlay.setVisibility(View.VISIBLE);
-                        }
+                    @Override public void onPermissionPermanentlyDenied() {
+                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.VISIBLE);
                     }
                 }
-            );
-
-            // Handle notification permission if it was also requested (Android 13+)
-            if (grantResults.length > 1) {
-                boolean notificationGranted = grantResults[1] == PackageManager.PERMISSION_GRANTED;
-                if (cameraGranted && !notificationGranted) {
-                    Toast.makeText(this, "Notifications disabled. You won't receive app alerts.", Toast.LENGTH_SHORT).show();
-                }
-            }
-        }
+        );
     }
 
-
     private void startCamera() {
-        if (!PermissionHelper.hasPermission(this, Manifest.permission.CAMERA)) {
-            return; // Don't start camera without permission
-        }
-
+        if (!PermissionHelper.hasPermission(this, Manifest.permission.CAMERA)) return;
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                // Unbind all use cases before rebinding
                 cameraProvider.unbindAll();
                 bindCameraPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                Log.e("RegisterActivity", "Error starting camera", e);
                 Toast.makeText(this, "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
@@ -360,121 +177,253 @@ public class RegisterActivity extends AppCompatActivity {
     private void bindCameraPreview(@NonNull ProcessCameraProvider cameraProvider) {
         try {
             previewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
-
-            Preview preview = new Preview.Builder()
-                    .build();
-
-            CameraSelector cameraSelector = new CameraSelector.Builder()
-                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                    .build();
-
+            Preview preview = new Preview.Builder().build();
+            CameraSelector selector = new CameraSelector.Builder()
+                    .requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
             preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-            ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+            ImageAnalysis analysis = new ImageAnalysis.Builder()
                     .setTargetResolution(new Size(1280, 720))
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build();
-
-            imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), new QRCodeImageAnalyzer(new QRCodeFoundListener() {
-                @Override
-                public void onQRCodeFound(String _qrCode) {
-                    setQR(_qrCode);
-                }
-
-                @Override
-                public void qrCodeNotFound() { }
-            }));
-
-            // Bind to lifecycle
-            cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis, preview);
-
-            Log.d("RegisterActivity", "Camera successfully bound");
+            analysis.setAnalyzer(ContextCompat.getMainExecutor(this),
+                    new QRCodeImageAnalyzer(new QRCodeFoundListener() {
+                        @Override public void onQRCodeFound(String code) { setQR(code); }
+                        @Override public void qrCodeNotFound() {}
+                    }));
+            cameraProvider.bindToLifecycle(this, selector, analysis, preview);
         } catch (Exception e) {
-            Log.e("RegisterActivity", "Error binding camera preview", e);
             Toast.makeText(this, "Failed to start camera preview", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void setQR(String _qrCode) {
-        if (_qrCode.length() == 64) {
-            key = _qrCode;
-            try {
-                System.out.println("getSHA " + getSHA(key));
-                System.out.println("hash " + toHexString(getSHA(key)));
-                hash = toHexString(getSHA(key));
-                continueButton.setText("Verification code: " + hash.substring(0, 4));
-                continueButton.setEnabled(true);
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
+    private void showManualInputDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Manual Code Entry");
+        builder.setMessage("Enter your registration code (8- or 40–60-character).");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setHint("Enter your code");
+        builder.setView(input);
+
+        builder.setPositiveButton("Submit", (dialog, which) -> {
+            String mText = input.getText().toString().trim();
+            if (mText.length() == 8 || (mText.length() >= 40 && mText.length() <= 60)) {
+                setQR(mText);
+            } else {
+                Toast.makeText(this, "Invalid code length. Must be 8 or ~40–60 characters.", Toast.LENGTH_LONG).show();
+                showManualInputDialog();
             }
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    private void setQR(String _qrCode) {
+        if (_qrCode == null) return;
+        int len = _qrCode.trim().length();
+        if (!(len == 8 || (len >= 40 && len <= 60))) {
+            Toast.makeText(this, "Invalid code. Must be 8 or 40–60 characters.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        key = _qrCode.trim();
+        try {
+            hash = toHexString(getSHA(key));
+            continueButton.setText(len == 8
+                    ? "Short code: " + key
+                    : "Verification: " + hash.substring(0, 4));
+            continueButton.setEnabled(true);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
         }
     }
 
-    private void commitSharedPreferences() {
-        commitSharedPreferences(false);
+    /** Enroll with Receiver (signed via HttpSignatureInterceptor) */
+    private void enrollWithReceiver(String code) {
+        continueButton.setEnabled(false);
+        continueButton.setText("Enrolling…");
+
+        new Thread(() -> {
+            // optional health check to warm up TLS, etc.
+            try {
+                Request health = new Request.Builder()
+                        .url(RECEIVER_BASE + HEALTH_PATH)
+                        .get().build();
+                http.newCall(health).execute().close();
+            } catch (Exception ignored) {}
+
+            // prepare signing public key
+            String clientPubPem;
+            try {
+                clientPubPem = getOrCreateClientPublicKeyPem();
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    continueButton.setEnabled(true);
+                    continueButton.setText("Continue");
+                    Toast.makeText(this, "Keypair error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+                return;
+            }
+
+            // build JSON body
+            JSONObject body = new JSONObject();
+            boolean longToken = (code.length() >= 40 && code.length() <= 60);
+            try {
+                body.put("client_public_key", clientPubPem);
+                if (longToken) {
+                    String shortCode = toHexString(getSHA(code)).substring(0, 8);
+                    body.put("enrollment_token", code);
+                    body.put("short_code", shortCode);
+                } else { // short code only
+                    body.put("short_code", code);
+                }
+            } catch (JSONException | NoSuchAlgorithmException ignored) {}
+
+            // request with optional Authorization: Bearer <token> for long tokens
+            Request.Builder rb = new Request.Builder()
+                    .url(RECEIVER_BASE + ENROLL_PATH)
+                    .post(RequestBody.create(body.toString(), JSON_MEDIA));
+
+            if (longToken) {
+                rb.addHeader("Authorization", "Bearer " + code);
+            }
+
+            Request req = rb.build();
+
+            try (Response resp = http.newCall(req).execute()) {
+                if (!resp.isSuccessful()) {
+                    int codeVal = resp.code();
+                    runOnUiThread(() -> {
+                        continueButton.setEnabled(true);
+                        continueButton.setText("Continue");
+                        Toast.makeText(this, "Enrollment failed (" + codeVal + ")", Toast.LENGTH_LONG).show();
+                    });
+                    return;
+                }
+
+                String json = resp.body() != null ? resp.body().string() : "{}";
+                JSONObject obj = new JSONObject(json);
+                String pptId       = obj.optString("ppt_id", "");
+                String studyId     = obj.optString("study_id", "");
+                String imagePubPem = obj.optString("image_public_key", "");
+
+                // persist for later uploads
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                SharedPreferences.Editor ed = prefs.edit();
+                ed.putString("ppt_id", pptId);
+                ed.putString("study_id", studyId);
+                ed.putString("image_public_key", imagePubPem); // new key name used by Batch
+                ed.putString("base_url", RECEIVER_BASE);
+                ed.putString("key", key);
+                ed.putString("hash", hash);
+
+                if (longToken) {
+                    ed.putString("enrollment_token", code);
+                } else {
+                    ed.remove("enrollment_token");
+                }
+
+                // remove any legacy key name
+                ed.remove("image_public_key_pem");
+                ed.apply();
+
+                runOnUiThread(() -> {
+                    String shortId = pptId.length() >= 4 ? pptId.substring(0, 4) : pptId;
+                    continueButton.setText("Enrolled: " + shortId);
+                    continueButton.setEnabled(true);
+                    startActivity(new Intent(this, MainActivity.class));
+                    finish();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    continueButton.setEnabled(true);
+                    continueButton.setText("Continue");
+                    Toast.makeText(this, "Enrollment error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }).start();
     }
 
-    private void commitSharedPreferences(boolean isTester) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("key", key);
-        editor.putString("hash", hash);
-        editor.putBoolean("isTester", isTester);
-        if (isTester) {
-            editor.putString("testerTimestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()));
+    /** Ensure the RSA key supports both PSS and PKCS#1 paddings */
+    private String getOrCreateClientPublicKeyPem() throws Exception {
+        KeyStore ks = KeyStore.getInstance(ANDROID_KEYSTORE);
+        ks.load(null);
+
+        // Always delete old alias to force new key with correct paddings
+        if (ks.containsAlias(KEYSTORE_ALIAS)) {
+            Log.w(TAG, "Deleting existing key alias to regenerate with both paddings");
+            ks.deleteEntry(KEYSTORE_ALIAS);
         }
-        editor.apply();
+
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_RSA, ANDROID_KEYSTORE);
+
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                KEYSTORE_ALIAS,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setKeySize(2048)
+                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setSignaturePaddings(
+                        KeyProperties.SIGNATURE_PADDING_RSA_PSS,
+                        KeyProperties.SIGNATURE_PADDING_RSA_PKCS1
+                )
+                .setUserAuthenticationRequired(false)
+                .build();
+
+        try {
+            kpg.initialize(spec);
+            KeyPair kp = kpg.generateKeyPair();
+            Log.i(TAG, "✅ Generated new RSA key in AndroidKeyStore with PSS + PKCS#1 support");
+            return exportPublicKeyPem(kp.getPublic());
+        } catch (Exception ex) {
+            Log.e(TAG, "❌ AndroidKeyStore key generation failed, falling back to software key: " + ex.getMessage());
+            // Fallback: generate an in-memory software keypair
+            KeyPairGenerator softGen = KeyPairGenerator.getInstance("RSA");
+            softGen.initialize(2048);
+            KeyPair kp = softGen.generateKeyPair();
+            Log.w(TAG, "⚠️ Using in-memory software RSA key (not persisted)");
+            return exportPublicKeyPem(kp.getPublic());
+        }
     }
 
+    /** Utility to encode public key as PEM */
+    private static String exportPublicKeyPem(PublicKey pub) {
+        String b64 = Base64.encodeToString(pub.getEncoded(), Base64.NO_WRAP);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < b64.length(); i += 64)
+            sb.append(b64, i, Math.min(i + 64, b64.length())).append("\n");
+        return "-----BEGIN PUBLIC KEY-----\n" + sb.toString().trim() + "\n-----END PUBLIC KEY-----";
+    }
 
-    private byte[] getSHA(String input)  throws NoSuchAlgorithmException {
+    private byte[] getSHA(String input) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        md.update(Converter.hexStringToByteArray(input));
+        md.update(input.getBytes(StandardCharsets.UTF_8));
         return md.digest();
     }
 
     private String toHexString(byte[] hash) {
         BigInteger num = new BigInteger(1, hash);
-        StringBuilder hexString = new StringBuilder(num.toString(16));
-        while (hexString.length() < 64) {
-            hexString.insert(0, '0');
-        }
-        return hexString.toString();
+        StringBuilder hex = new StringBuilder(num.toString(16));
+        while (hex.length() < 64) hex.insert(0, '0');
+        return hex.toString();
     }
 
-    @Override
-    public void onBackPressed () { }
+    private void openImagePicker() { imagePickerLauncher.launch("image/*"); }
 
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event)  {
-
-        if (keyCode == KeyEvent.KEYCODE_BACK)  //Override Keyback to do nothing in this case.
-        {
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);  //-->All others key will work as usual
-    }
-
-    private void openImagePicker() {
-        imagePickerLauncher.launch("image/*");
-    }
-
-    private void processQRImageFromGallery(Uri imageUri) {
+    private void processQRImageFromGallery(Uri uri) {
         try {
-            Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
-            String qrCode = decodeQRCode(bitmap);
-            if (qrCode != null && !qrCode.isEmpty()) {
-                setQR(qrCode);
+            Bitmap bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+            String qr = decodeQRCode(bmp);
+            if (qr != null && !qr.isEmpty()) {
+                setQR(qr);
                 Toast.makeText(this, "QR code found!", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "No QR code found in the image", Toast.LENGTH_LONG).show();
             }
-        } catch (IOException e) {
-            Log.e("RegisterActivity", "Error processing image", e);
-            Toast.makeText(this, "Error processing image: " + e.getMessage(), Toast.LENGTH_LONG).show();
         } catch (Exception e) {
-            Log.e("RegisterActivity", "Error decoding QR code", e);
-            Toast.makeText(this, "Error reading QR code from image", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Error reading QR: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -482,105 +431,18 @@ public class RegisterActivity extends AppCompatActivity {
         try {
             int[] intArray = new int[bitmap.getWidth() * bitmap.getHeight()];
             bitmap.getPixels(intArray, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-
             RGBLuminanceSource source = new RGBLuminanceSource(bitmap.getWidth(), bitmap.getHeight(), intArray);
             BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-            MultiFormatReader reader = new MultiFormatReader();
-            Result result = reader.decode(binaryBitmap);
+            Result result = new MultiFormatReader().decode(binaryBitmap);
             return result.getText();
         } catch (Exception e) {
-            Log.w("RegisterActivity", "QR code not found in image", e);
+            Log.w(TAG, "QR not found", e);
             return null;
         }
     }
 
-    private void generateTestId() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Generate Test ID");
-        builder.setMessage("This will create a test ID for development purposes.\n\n" +
-                          "Test data will be identifiable on the backend for easy filtering.\n\n" +
-                          "Continue with test ID generation?");
-        builder.setIcon(android.R.drawable.ic_dialog_info);
-
-        builder.setPositiveButton("Generate Test ID", (dialog, which) -> {
-            try {
-                // Generate a test ID with "TEST_" prefix and timestamp
-                String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-                SecureRandom random = new SecureRandom();
-
-                // Generate 32 random hex characters (like a real QR code but shorter)
-                StringBuilder testKey = new StringBuilder("TEST_");
-                testKey.append(timestamp).append("_");
-
-                // Add random hex characters to make it 64 characters total
-                String hexChars = "0123456789abcdef";
-                int remainingLength = 64 - testKey.length();
-                for (int i = 0; i < remainingLength; i++) {
-                    testKey.append(hexChars.charAt(random.nextInt(hexChars.length())));
-                }
-
-                key = testKey.toString();
-                hash = toHexString(getSHA(key));
-
-                // Log the key length for debugging
-                Log.d("RegisterActivity", "Generated test ID length: " + key.length());
-                Log.d("RegisterActivity", "Generated test ID: " + key);
-
-                continueButton.setText("Test ID: " + hash.substring(0, 8) + "...");
-                continueButton.setEnabled(true);
-
-                Toast.makeText(this, "Test ID generated (length: " + key.length() + ")", Toast.LENGTH_SHORT).show();
-
-                // Show the generated test info
-                showTestIdInfo();
-
-            } catch (NoSuchAlgorithmException e) {
-                Log.e("RegisterActivity", "Error generating test ID", e);
-                Toast.makeText(this, "Error generating test ID", Toast.LENGTH_LONG).show();
-            }
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        builder.show();
+    @Override public void onBackPressed() {}
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        return keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event);
     }
-
-    private void showTestIdInfo() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Test ID Generated");
-
-        String info = "Test ID Details:\n\n" +
-                     "Key: " + key + "\n\n" +
-                     "Hash: " + hash.substring(0, 16) + "...\n\n" +
-                     "This is a TESTER account. All data will be marked as test data on the backend.";
-
-        builder.setMessage(info);
-
-        // Add Copy button
-        builder.setNeutralButton("Copy ID", (dialog, which) -> {
-            android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
-                getSystemService(Context.CLIPBOARD_SERVICE);
-            android.content.ClipData clip = android.content.ClipData.newPlainText("Test ID", key);
-            clipboard.setPrimaryClip(clip);
-            Toast.makeText(this, "Test ID copied! (Length: " + key.length() + " chars)", Toast.LENGTH_LONG).show();
-
-            // Show the dialog again after copying
-            showTestIdInfo();
-        });
-
-        builder.setPositiveButton("Continue to App", (dialog, which) -> {
-            commitSharedPreferences(true); // Mark as tester
-            Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
-            startActivity(intent);
-            finish();
-        });
-
-        builder.setNegativeButton("Generate New", (dialog, which) -> {
-            generateTestId(); // Generate another test ID
-        });
-
-        builder.setCancelable(false);
-        builder.show();
-    }
-
 }

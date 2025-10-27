@@ -21,12 +21,13 @@ This repository contains the Android application for the ScreenLife Capture rese
 
 ### Current Server Integration
 
-The application integrates with the research server:
-- **Server Response Logging**: Logs all server responses for debugging
-- **Batch Upload**: Sends data in configurable batch sizes (default: 10 items)
+The application integrates with the new **MindPulse Receiver** server, which validates cryptographically signed requests and enforces anti-replay protection.
 
-**Note**: Currently experiencing server error 500 responses. Issue appears to be server-side.
-
+- **Canonical Request Signing**: Each upload request is signed with the device’s private key, and the server verifies authenticity via the stored public key.
+- **Structured Signature Header**: Follows the HTTP Signatures spec with a canonical string and timestamp.
+- **Anti-Replay Protection**: Adds `X-Request-Nonce` and `X-Request-Timestamp` headers per request.
+- **Batch Upload Endpoint**: Uses `/api/v1/img/{study_id}/{participant_id}` for uploads.
+- **Server Response Logging**: All responses and hashes are recorded in local logs.
 
 
 ## Architecture Overview
@@ -135,6 +136,8 @@ The application requires extensive permissions for data collection:
 - **No Backup**: Backup is disabled (`android:allowBackup="false"`)
 - **Secure Storage**: Uses Android's secure storage mechanisms
 - **Network Security**: HTTPS-only communication with research servers
+- **Cryptographic Signatures**: Each batch request is signed using RSA (SHA-256) to verify authenticity.
+- **Anti-Replay Protection**: Server rejects reused nonces or stale timestamps.
 
 ## Version Notes
 
