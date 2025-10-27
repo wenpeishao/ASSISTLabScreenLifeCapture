@@ -129,8 +129,13 @@ public class CaptureService extends Service {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String hash = prefs.getString("hash", "00000000").substring(0, 8);
         String keyRaw = prefs.getString("key", "");
-        byte[] key = Converter.hexStringToByteArray(keyRaw);
-        FileOutputStream fos = null;
+        byte[] key;
+        try {
+            key = Encryptor.deriveAesKeyFromToken(keyRaw);
+        } catch (Exception e) {
+            Log.e("SCREENOMICS_CAPTURE", "Failed to derive AES key from token", e);
+            return;
+        }   FileOutputStream fos = null;
         String dir = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
 
         // Generate IV first since we need it for the filename
@@ -277,8 +282,13 @@ public class CaptureService extends Service {
                         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
                         String hash = prefs.getString("hash", "00000000").substring(0, 8);
                         String keyRaw = prefs.getString("key", "");
-                        byte[] key = Converter.hexStringToByteArray(keyRaw);
-                        Date date = new Date();
+                        byte[] key;
+                        try {
+                            key = Encryptor.deriveAesKeyFromToken(keyRaw);
+                        } catch (Exception e) {
+                            Log.e("SCREENOMICS_CAPTURE", "Failed to derive AES key from token", e);
+                            return;
+                        }    Date date = new Date();
 
                         // Generate IV first for filename
                         byte[] iv = SecureFileUtils.generateSecureIV();

@@ -158,7 +158,7 @@ public class DevToolsActivity extends Activity {
 
     public Response canReachEndpoint(){
         OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(Constants.UPLOAD_ADDRESS).get().build();
+        Request request = new Request.Builder().url(Constants.HEALTHCHECK_ADDRESS).get().build();
 
         Response response = null;
         try {
