@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//z/mindpulse_test/9ec6137a/2025-10-03/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
