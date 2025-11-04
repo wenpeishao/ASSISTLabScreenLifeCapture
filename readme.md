@@ -6,8 +6,8 @@ This repository contains the Android application for the ScreenLife Capture rese
 
 **App Name:** UW ASSIST Lab ScreenLife
 **Package ID:** edu.wisc.chm.screenomics
-**Current Version:** 1.14 (Build 16)
-**Target SDK:** 33
+**Current Version:** 1.13 (Build 15)
+**Target SDK:** 35
 **Min SDK:** 29  
 
 ### Key Features
@@ -141,7 +141,24 @@ The application requires extensive permissions for data collection:
 
 ## Version Notes
 
-### v1.15 Changes (Development)
+### v1.13 Changes (Current - Critical Release)
+- **AGP 8.5.2 Upgrade**: Upgraded Android Gradle Plugin from 8.2.0 to 8.5.2 for native 16 KB support
+- **Gradle 8.7 Upgrade**: Updated Gradle wrapper to version 8.7
+- **Kotlin 1.9.0**: Updated Kotlin to version 1.9.0 for compatibility
+- **Native Library Auto-Alignment**: AGP 8.5.2+ automatically aligns all native libraries to 16 KB boundaries
+- **jcenter() Deprecated**: Migrated from deprecated jcenter() to mavenCentral()
+- **Critical Fix**: Final solution for Google Play 16 KB requirement (deadline: November 1, 2025)
+
+### v1.12 Changes (Failed Attempt)
+- Attempted to use compressed libraries (useLegacyPackaging = true)
+- Did not solve the root cause (ELF segment alignment)
+
+### v1.11 Changes (Failed Attempt)
+- Initial 16 KB support attempt with experimental flags
+- Updated targetSdk to 35
+- Updated CameraX to 1.3.4
+
+### v1.15 Changes (Future Development)
 - **Video Recording Restored**: Full video recording functionality re-enabled
 - **Recording Timer**: Added real-time duration display (MM:SS format)
 - **Audio Volume Indicator**: Visual feedback showing microphone input levels
