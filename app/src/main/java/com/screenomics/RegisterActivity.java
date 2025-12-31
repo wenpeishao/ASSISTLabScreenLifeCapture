@@ -16,19 +16,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
-import androidx.core.content.ContextCompat;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import android.util.Size;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -43,13 +35,14 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
-import java.util.concurrent.ExecutionException;
 
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -81,17 +74,11 @@ public class RegisterActivity extends AppCompatActivity {
     private String key;   // user-entered/QR code (short 8 or long token)
     private String hash;  // SHA-256 of key (hex) used for UI verification
 
-    private PreviewView previewView;
     private Button continueButton;
-    private View permissionOverlay;
-    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private Button scanQrButton;
     private ActivityResultLauncher<String> imagePickerLauncher;
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (previewView != null) previewView.post(this::checkAndStartCamera);
-    }
+    private ActivityResultLauncher<ScanOptions> qrScannerLauncher;
+    private ActivityResultLauncher<String> cameraPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,9 +91,23 @@ public class RegisterActivity extends AppCompatActivity {
                 new ActivityResultContracts.GetContent(),
                 uri -> { if (uri != null) processQRImageFromGallery(uri); }
         );
-
-        previewView = findViewById(R.id.activity_main_previewView);
-        permissionOverlay = findViewById(R.id.camera_permission_overlay);
+        qrScannerLauncher = registerForActivityResult(new ScanContract(), result -> {
+            if (result.getContents() != null) {
+                setQR(result.getContents());
+                Toast.makeText(this, "QR code scanned", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Scan cancelled", Toast.LENGTH_SHORT).show();
+            }
+        });
+        cameraPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                granted -> {
+                    if (granted) {
+                        launchQrScanner();
+                    } else {
+                        Toast.makeText(this, "Camera permission is required to scan QR codes.", Toast.LENGTH_LONG).show();
+                    }
+                });
 
         continueButton = findViewById(R.id.continueButton);
         continueButton.setOnClickListener(v -> {
@@ -117,83 +118,32 @@ public class RegisterActivity extends AppCompatActivity {
             enrollWithReceiver(key);
         });
 
+        scanQrButton = findViewById(R.id.scanQrButton);
+        scanQrButton.setOnClickListener(v -> startQrScanFlow());
+
         Button manualEntryButton = findViewById(R.id.manualEntryButton);
         manualEntryButton.setOnClickListener(v -> showManualInputDialog());
 
         Button uploadFromGalleryButton = findViewById(R.id.uploadFromGalleryButton);
         uploadFromGalleryButton.setOnClickListener(v -> openImagePicker());
-
-        Button grantPermissionButton = findViewById(R.id.grant_permission_button);
-        if (grantPermissionButton != null)
-            grantPermissionButton.setOnClickListener(v -> requestCamera());
-
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        requestCamera();
     }
 
-    private void checkAndStartCamera() {
-        boolean hasPermission = PermissionHelper.hasPermission(this, Manifest.permission.CAMERA);
-        if (hasPermission) {
-            if (permissionOverlay != null) permissionOverlay.setVisibility(View.GONE);
-            if (cameraProviderFuture != null && previewView != null) startCamera();
-        } else if (permissionOverlay != null) {
-            permissionOverlay.setVisibility(View.VISIBLE);
+    private void startQrScanFlow() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            launchQrScanner();
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
     }
 
-    private void requestCamera() {
-        PermissionHelper.requestPermissionWithExplanation(
-                this,
-                Manifest.permission.CAMERA,
-                PermissionHelper.PERMISSION_REQUEST_CAMERA,
-                new PermissionHelper.PermissionCallback() {
-                    @Override public void onPermissionGranted() {
-                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.GONE);
-                        startCamera();
-                    }
-                    @Override public void onPermissionDenied() {
-                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.VISIBLE);
-                    }
-                    @Override public void onPermissionPermanentlyDenied() {
-                        if (permissionOverlay != null) permissionOverlay.setVisibility(View.VISIBLE);
-                    }
-                }
-        );
-    }
-
-    private void startCamera() {
-        if (!PermissionHelper.hasPermission(this, Manifest.permission.CAMERA)) return;
-        cameraProviderFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                cameraProvider.unbindAll();
-                bindCameraPreview(cameraProvider);
-            } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        }, ContextCompat.getMainExecutor(this));
-    }
-
-    private void bindCameraPreview(@NonNull ProcessCameraProvider cameraProvider) {
-        try {
-            previewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
-            Preview preview = new Preview.Builder().build();
-            CameraSelector selector = new CameraSelector.Builder()
-                    .requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
-            preview.setSurfaceProvider(previewView.getSurfaceProvider());
-            ImageAnalysis analysis = new ImageAnalysis.Builder()
-                    .setTargetResolution(new Size(1280, 720))
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build();
-            analysis.setAnalyzer(ContextCompat.getMainExecutor(this),
-                    new QRCodeImageAnalyzer(new QRCodeFoundListener() {
-                        @Override public void onQRCodeFound(String code) { setQR(code); }
-                        @Override public void qrCodeNotFound() {}
-                    }));
-            cameraProvider.bindToLifecycle(this, selector, analysis, preview);
-        } catch (Exception e) {
-            Toast.makeText(this, "Failed to start camera preview", Toast.LENGTH_SHORT).show();
-        }
+    private void launchQrScanner() {
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        options.setPrompt("Align the QR code within the frame");
+        options.setBeepEnabled(false);
+        options.setOrientationLocked(false);
+        qrScannerLauncher.launch(options);
     }
 
     private void showManualInputDialog() {

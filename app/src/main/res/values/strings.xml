@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">UW ASSIST Lab ScreenLife</string>
+    <string name="app_name">MindPulse</string>
     <string name="capture_state_on">CAPTURING DATA</string>
     <string name="capture_state_off">CURRENTLY NOT CAPTURING DATA</string>
     <string name="app_creator">by UW Madison ASSIST Lab</string>

@@ -83,7 +83,7 @@ public class LocationService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     LOCATION_CHANNEL_ID,
-                    "Screenomics Location Channel",
+                    "MindPulse Location Channel",
                     NotificationManager.IMPORTANCE_HIGH
             );
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
@@ -221,7 +221,7 @@ public class LocationService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, intentFlags);
 
         Notification notification = new NotificationCompat.Builder(this, LOCATION_CHANNEL_ID)
-                .setContentTitle("Screenomics Location Updates Running")
+                .setContentTitle("MindPulse Location Updates Running")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentIntent(pendingIntent)
                 .build();

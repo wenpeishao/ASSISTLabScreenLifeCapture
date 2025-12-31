@@ -304,7 +304,7 @@ public class UploadService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     "uploading-channel",
-                    "Screenomics Service Channel",
+                    "MindPulse Service Channel",
                     NotificationManager.IMPORTANCE_LOW
             );
             serviceChannel.setSound(null, null);
