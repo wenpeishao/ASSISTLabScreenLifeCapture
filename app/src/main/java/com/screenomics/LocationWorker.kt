@@ -16,7 +16,7 @@ class LocationWorker(context: Context, param: WorkerParameters) :
 
     companion object {
         // unique name for the work
-        val workName = "ScreenomicsLocationWorker"
+        val workName = "MindPulseLocationWorker"
         private const val TAG = "BackgroundLocationWork"
     }
 
@@ -35,7 +35,7 @@ class LocationWorker(context: Context, param: WorkerParameters) :
         ).addOnSuccessListener { location ->
             location?.let {
                 Log.d(
-                    "Screenomics",
+                    "MindPulse",
                     "Current Location = [lat : ${location.latitude}, lng : ${location.longitude}]",
                 )
                 println("Current Location = [lat : ${location.latitude}, lng : ${location.longitude}]")

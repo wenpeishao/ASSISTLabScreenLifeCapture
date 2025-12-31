@@ -1,35 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#002b5c">
-
-    <Button
-        android:id="@+id/errorButton"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
-        android:layout_marginEnd="16dp"
-        android:background="@android:drawable/ic_dialog_alert"
-        android:drawableTint="#FEFEFE"
-        android:textColor="#222222"
-        app:layout_constraintTop_toTopOf="@id/continueButton"
-        app:layout_constraintStart_toEndOf="@id/continueButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
-
-    <TextView
-        android:id="@+id/appSubtitle2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:text="@string/app_creator"
-        android:textAllCaps="true"
-        android:textColor="@color/white_isabelline"
-        android:textSize="10sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/appTitle2" />
 
     <TextView
         android:id="@+id/appTitle2"
@@ -45,33 +19,81 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <androidx.camera.view.PreviewView
-        android:id="@+id/activity_main_previewView"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        app:layout_constraintTop_toBottomOf="@+id/appSubtitle2"
+    <TextView
+        android:id="@+id/appSubtitle2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:text="@string/app_creator"
+        android:textAllCaps="true"
+        android:textColor="@color/white_isabelline"
+        android:textSize="10sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/appTitle2" />
 
-    </androidx.camera.view.PreviewView>
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:src="@drawable/dna"
+        app:layout_constraintBottom_toTopOf="@+id/scanContainer"
+        app:layout_constraintStart_toEndOf="@id/appTitle2"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <include
-        android:id="@+id/camera_permission_overlay"
-        layout="@layout/camera_permission_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/scanContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
         android:layout_marginTop="16dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@+id/appSubtitle2"
+        android:layout_marginEnd="24dp"
+        app:cardBackgroundColor="@android:color/white"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/appSubtitle2">
 
-    <!-- Alternative options when camera is working -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center_horizontal">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@drawable/mindpulse_logo"
+                android:contentDescription="@string/app_name"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:id="@+id/scanInstructions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Use the camera to scan your enrollment QR code. You can also enter the code manually or load it from your photo gallery."
+                android:textAlignment="center"
+                android:textColor="@android:color/black"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/scanQrButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Scan QR Code"
+                android:textAllCaps="true"
+                android:textColor="@color/white_isabelline"
+                android:backgroundTint="@color/sea_green" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <LinearLayout
         android:id="@+id/alternativeOptions"
         android:layout_width="match_parent"
@@ -81,8 +103,7 @@
         android:layout_marginTop="12dp"
         android:orientation="horizontal"
         android:gravity="center"
-        android:visibility="visible"
-        app:layout_constraintTop_toBottomOf="@+id/activity_main_previewView"
+        app:layout_constraintTop_toBottomOf="@+id/scanContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -134,7 +155,6 @@
             android:text="QR Code not found"
             android:minWidth="200dp" />
 
-        <!-- Testing/Development option -->
         <Button
             android:id="@+id/skipForTestingButton"
             android:layout_width="wrap_content"
@@ -147,16 +167,16 @@
 
     </LinearLayout>
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="20dp"
+    <Button
+        android:id="@+id/errorButton"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintBottom_toTopOf="@+id/activity_main_previewView"
-        app:layout_constraintStart_toEndOf="@id/appTitle2"
+        android:background="@android:drawable/ic_dialog_alert"
+        android:drawableTint="#FEFEFE"
+        android:textColor="#222222"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@mipmap/ic_launcher_leaf_round" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

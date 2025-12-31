@@ -421,7 +421,7 @@ public class CaptureService extends Service {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             notification = new Notification.Builder(this, CHANNEL_ID)
                     .setSmallIcon(R.drawable.dna)
-                    .setContentTitle("ScreenLife Capture is currently enabled")
+                    .setContentTitle("MindPulse is currently enabled")
                     .setContentText("If this notification disappears, please re-enable it from the application.")
                     .setContentIntent(pendingIntent)
                     .build();
@@ -576,7 +576,7 @@ public class CaptureService extends Service {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             notification = new Notification.Builder(this, CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
-                    .setContentTitle("ScreenLife Capture is NOT Running!")
+                    .setContentTitle("MindPulse is NOT Running!")
                     .setContentText("Please restart the application!")
                     .setContentIntent(pendingIntent)
                     .build();
@@ -603,7 +603,7 @@ public class CaptureService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Screenomics Service Channel",
+                    "MindPulse Service Channel",
                     NotificationManager.IMPORTANCE_HIGH
             );
             NotificationManager notificationManager = getSystemService(NotificationManager.class);

@@ -286,7 +286,7 @@ public class MainActivity extends AppCompatActivity {
                         screenCaptureIntent.putExtra("intentData", result.getData());
                         screenCaptureIntent.putExtra("screenDensity", mScreenDensity);
                         startForegroundService(screenCaptureIntent);
-                        Toast.makeText(MainActivity.this, "ScreenLife Capture is running!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, "MindPulse is running!", Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
                         Log.e("MainActivity", "Failed to start CaptureService: " + e.getMessage(), e);
                         Toast.makeText(MainActivity.this, "Failed to start screen capture: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -313,7 +313,7 @@ public class MainActivity extends AppCompatActivity {
             screenCaptureIntent.putExtra("screenDensity", mScreenDensity);
             startForegroundService(screenCaptureIntent);
             startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            Toast.makeText(this, "ScreenLife Capture is running!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "MindPulse is running!", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
         }
