@@ -15,10 +15,8 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
-import android.util.Size;
 
 import androidx.annotation.NonNull;
-import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FileOutputOptions;
@@ -39,7 +37,6 @@ import androidx.preference.PreferenceManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
-import java.util.Date;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,47 +46,62 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
     private static final String CHANNEL_ID = "video_capture_channel";
     private static final int NOTIFICATION_ID = 2;
 
+    public static final String ACTION_START_RECORDING = "start_recording";
+    public static final String ACTION_STOP_RECORDING = "stop_recording";
+
     private VideoCapture<Recorder> videoCapture;
     private Recording recording;
     private ProcessCameraProvider cameraProvider;
     private ExecutorService cameraExecutor;
     private boolean isRecording = false;
     private LifecycleRegistry lifecycleRegistry;
+    private final IBinder binder = new LocalBinder();
 
     public class LocalBinder extends Binder {
-        VideoCaptureService getService() { return VideoCaptureService.this; }
+        public VideoCaptureService getService() {
+            return VideoCaptureService.this;
+        }
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
         lifecycleRegistry = new LifecycleRegistry(this);
-        lifecycleRegistry.markState(Lifecycle.State.CREATED);
-        
+        lifecycleRegistry.setCurrentState(Lifecycle.State.CREATED);
+
         cameraExecutor = Executors.newSingleThreadExecutor();
         createNotificationChannel();
-        initializeCamera();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        lifecycleRegistry.markState(Lifecycle.State.STARTED);
-        
+        // Start foreground immediately
+        Notification notification = createNotification("Video service ready", "MindPulse video capture");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
+
+        lifecycleRegistry.setCurrentState(Lifecycle.State.STARTED);
+
         if (intent != null) {
             String action = intent.getStringExtra("action");
-            if ("start_recording".equals(action)) {
-                startVideoRecording();
-            } else if ("stop_recording".equals(action)) {
+            if (ACTION_START_RECORDING.equals(action)) {
+                initializeCameraAndRecord();
+            } else if (ACTION_STOP_RECORDING.equals(action)) {
                 stopVideoRecording();
             }
         }
-        
+
         return START_STICKY;
     }
 
-    private void initializeCamera() {
+    private void initializeCameraAndRecord() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Camera permission not granted");
+            stopSelf();
             return;
         }
 
@@ -97,14 +109,21 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
         cameraProviderFuture.addListener(() -> {
             try {
                 cameraProvider = cameraProviderFuture.get();
-                setupCamera();
+                setupCameraAndStartRecording();
             } catch (ExecutionException | InterruptedException e) {
                 Log.e(TAG, "Error initializing camera", e);
+                stopSelf();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
-    private void setupCamera() {
+    private void setupCameraAndStartRecording() {
+        if (cameraProvider == null) {
+            Log.e(TAG, "CameraProvider is null");
+            stopSelf();
+            return;
+        }
+
         CameraSelector cameraSelector = new CameraSelector.Builder()
                 .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                 .build();
@@ -119,11 +138,12 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
 
         try {
             cameraProvider.unbindAll();
-            // Note: Preview is handled by the fragment, we only bind video capture here
-            Camera camera = cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture);
-            Log.d(TAG, "Camera setup for recording completed successfully");
+            cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture);
+            Log.d(TAG, "Camera bound successfully");
+            startVideoRecording();
         } catch (Exception e) {
-            Log.e(TAG, "Error binding camera for recording", e);
+            Log.e(TAG, "Error binding camera", e);
+            stopSelf();
         }
     }
 
@@ -134,50 +154,59 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
         }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        String hash = prefs.getString("hash", "00000000").substring(0, 8);
-
-        // Generate IV for video file
-        byte[] videoIV = SecureFileUtils.generateSecureIV();
-        String filename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4", videoIV);
-
-        // Store IV in SharedPreferences for later encryption
-        prefs.edit().putString("currentVideoIV", SecureFileUtils.bytesToHex(videoIV)).apply();
-        
-        File videoDir = new File(getExternalFilesDir(null), "videos");
-        if (!videoDir.exists()) {
-            videoDir.mkdirs();
+        String hash = prefs.getString("hash", "00000000");
+        if (hash.length() >= 8) {
+            hash = hash.substring(0, 8);
         }
-        
-        File videoFile = new File(videoDir, filename);
-        
+
+        // Generate filename for video - use simple format that Batch can process
+        // Batch will encrypt the file and handle metadata
+        long timestamp = System.currentTimeMillis();
+        String filename = hash + "_" + timestamp + "_video.mp4";
+
+        // Save directly to encrypt directory so Batch can pick it up for upload
+        File encryptDir = new File(getExternalFilesDir(null), "encrypt");
+        if (!encryptDir.exists()) {
+            encryptDir.mkdirs();
+        }
+
+        File videoFile = new File(encryptDir, filename);
         FileOutputOptions outputOptions = new FileOutputOptions.Builder(videoFile).build();
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        // Check audio permission
+        boolean hasAudioPermission = ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+
+        androidx.camera.video.PendingRecording pendingRecording =
+                videoCapture.getOutput().prepareRecording(this, outputOptions);
+
+        if (hasAudioPermission) {
+            pendingRecording = pendingRecording.withAudioEnabled();
+        } else {
             Log.w(TAG, "Audio permission not granted, recording video only");
         }
 
-        recording = videoCapture.getOutput()
-                .prepareRecording(this, outputOptions)
-                .withAudioEnabled()
-                .start(ContextCompat.getMainExecutor(this), videoRecordEvent -> {
-                    if (videoRecordEvent instanceof VideoRecordEvent.Start) {
-                        isRecording = true;
-                        updateNotification("Recording video...", "MindPulse video capture in progress");
-                        Log.d(TAG, "Video recording started");
-                    } else if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
-                        VideoRecordEvent.Finalize finalizeEvent = (VideoRecordEvent.Finalize) videoRecordEvent;
-                        if (!finalizeEvent.hasError()) {
-                            Log.d(TAG, "Video recording completed successfully");
-                            encryptAndUploadVideo(videoFile.getAbsolutePath());
-                        } else {
-                            Log.e(TAG, "Video recording failed: " + finalizeEvent.getError());
-                        }
-                        isRecording = false;
-                        updateNotification("Video capture complete", "Processing video file");
-                    }
-                });
+        recording = pendingRecording.start(ContextCompat.getMainExecutor(this), videoRecordEvent -> {
+            if (videoRecordEvent instanceof VideoRecordEvent.Start) {
+                isRecording = true;
+                updateNotification("Recording video...", "MindPulse video capture in progress");
+                Log.d(TAG, "Video recording started: " + videoFile.getName());
+            } else if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
+                VideoRecordEvent.Finalize finalizeEvent = (VideoRecordEvent.Finalize) videoRecordEvent;
+                isRecording = false;
 
-        startForeground(NOTIFICATION_ID, createNotification("Starting video recording...", "Preparing camera"));
+                if (!finalizeEvent.hasError()) {
+                    Log.d(TAG, "Video recording completed: " + videoFile.getAbsolutePath());
+                    Log.d(TAG, "Video file size: " + videoFile.length() + " bytes");
+                    // Video is saved to encrypt dir - Batch will encrypt and upload it
+                } else {
+                    Log.e(TAG, "Video recording failed with error: " + finalizeEvent.getError());
+                    videoFile.delete();
+                }
+
+                updateNotification("Video capture complete", "Ready for upload");
+            }
+        });
     }
 
     public void stopVideoRecording() {
@@ -188,43 +217,45 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
         }
     }
 
-    private void encryptAndUploadVideo(String videoPath) {
+    private void encryptVideo(File videoFile, byte[] iv, String hash) {
         cameraExecutor.execute(() -> {
             try {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
                 String keyRaw = prefs.getString("key", "");
-                byte[] key = Converter.hexStringToByteArray(keyRaw);
-                
-                File originalFile = new File(videoPath);
+
+                if (keyRaw.isEmpty()) {
+                    Log.e(TAG, "No encryption key found");
+                    videoFile.delete();
+                    return;
+                }
+
+                byte[] key = Encryptor.deriveAesKeyFromToken(keyRaw);
+
                 String encryptDir = getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt";
                 File encryptDirFile = new File(encryptDir);
                 if (!encryptDirFile.exists()) {
                     encryptDirFile.mkdirs();
                 }
-                
-                String encryptedPath = encryptDir + File.separator + originalFile.getName();
-                
-                // Get the IV from SharedPreferences that was stored when filename was created
-                String ivHex = prefs.getString("currentVideoIV", "");
-                byte[] iv;
-                if (!ivHex.isEmpty()) {
-                    iv = Converter.hexStringToByteArray(ivHex);
-                } else {
-                    // Fallback if IV wasn't stored
-                    iv = SecureFileUtils.generateSecureIV();
-                }
 
-                // Use the IV that matches the filename
-                Encryptor.encryptFile(key, videoPath, encryptedPath, iv);
+                // Generate new filename with IV for encrypted file
+                String encryptedFilename = SecureFileUtils.generateSecureFilename(hash, "video", "mp4.enc", iv);
+                String encryptedPath = encryptDir + File.separator + encryptedFilename;
 
-                if (originalFile.delete()) {
+                Log.d(TAG, "Encrypting video to: " + encryptedPath);
+                Encryptor.encryptFile(key, videoFile.getAbsolutePath(), encryptedPath, iv);
+
+                // Delete original unencrypted video
+                if (videoFile.delete()) {
                     Log.d(TAG, "Original video file deleted");
+                } else {
+                    Log.w(TAG, "Failed to delete original video file");
                 }
 
-                Log.d(TAG, "Video encrypted and uploaded");
-                
+                Log.d(TAG, "Video encrypted successfully");
+
             } catch (Exception e) {
                 Log.e(TAG, "Error encrypting video", e);
+                videoFile.delete();
             }
         });
     }
@@ -236,17 +267,21 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        lifecycleRegistry.markState(Lifecycle.State.DESTROYED);
-        
+        lifecycleRegistry.setCurrentState(Lifecycle.State.DESTROYED);
+
         if (recording != null) {
             recording.stop();
+            recording = null;
         }
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
         }
-        cameraExecutor.shutdown();
+        if (cameraExecutor != null) {
+            cameraExecutor.shutdown();
+        }
+        Log.d(TAG, "VideoCaptureService destroyed");
     }
-    
+
     @NonNull
     @Override
     public Lifecycle getLifecycle() {
@@ -255,7 +290,7 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return new LocalBinder();
+        return binder;
     }
 
     private void createNotificationChannel() {
@@ -267,7 +302,7 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
             );
             channel.setDescription("MindPulse video capture notifications");
             channel.setSound(null, null);
-            
+
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
@@ -275,16 +310,16 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
 
     private Notification createNotification(String title, String content) {
         Intent notificationIntent = new Intent(this, MainActivity.class);
-        
+
         int intentFlags;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             intentFlags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
         } else {
             intentFlags = PendingIntent.FLAG_UPDATE_CURRENT;
         }
-        
+
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, intentFlags);
-        
+
         return new Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(content)

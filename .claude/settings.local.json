@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Read(//z/mindpulse_test/9ec6137a/2025-10-03/**)"
+      "Read(//z/mindpulse_test/9ec6137a/2025-10-03/**)",
+      "Bash(git log:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

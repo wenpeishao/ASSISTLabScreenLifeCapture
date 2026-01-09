@@ -28,14 +28,13 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- Camera permissions for QR code scanning -->
+    <!-- Camera permissions for QR code scanning and video recording -->
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- RECORD_AUDIO not needed for QR scanning, only for video recording
+    <!-- RECORD_AUDIO for video recording with sound -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    -->
 
     <application
         android:allowBackup="false"
@@ -92,6 +91,16 @@
             android:name=".AutoUploadReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <receiver
+            android:name=".VideoReminderScheduler"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="VIDEO_REMINDER_ALARM" />
+                <action android:name="DISMISS_REMINDER" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

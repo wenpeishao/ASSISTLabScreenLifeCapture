@@ -375,11 +375,33 @@ public class MainActivity extends AppCompatActivity {
         boolean isDev = prefs.getBoolean("isDev", false);
         if (!isDev) devButton.setVisibility(View.GONE);
 
-        Intent launchIntent = getIntent();
-        if (launchIntent != null && launchIntent.getBooleanExtra("start_video_recording", false)) {
-            // Switch to MindPulse tab and start recording
+        handleVideoRecordingIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleVideoRecordingIntent(intent);
+    }
+
+    private void handleVideoRecordingIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("start_video_recording", false)) {
+            // Clear the flag to prevent re-triggering
+            intent.removeExtra("start_video_recording");
+
+            // Switch to Video tab
             if (viewPager != null) {
-                viewPager.setCurrentItem(1); // Switch to MindPulse tab
+                viewPager.setCurrentItem(1);
+
+                // Trigger recording in MindPulseFragment
+                viewPager.post(() -> {
+                    androidx.fragment.app.Fragment fragment = getSupportFragmentManager()
+                            .findFragmentByTag("f1");
+                    if (fragment instanceof MindPulseFragment) {
+                        ((MindPulseFragment) fragment).triggerRecording();
+                    }
+                });
             }
         }
     }

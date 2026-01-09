@@ -291,7 +291,9 @@ public class ScreenLifeFragment extends Fragment {
                     
                     for (File file : allFiles) {
                         bytesTotal += file.length();
-                        if (file.getName().contains("_video.mp4")) {
+                        String fileName = file.getName();
+                        // Video files have .mp4.enc extension
+                        if (fileName.endsWith(".mp4.enc") || fileName.contains("_video.mp4")) {
                             numVideos++;
                         } else {
                             numImages++;

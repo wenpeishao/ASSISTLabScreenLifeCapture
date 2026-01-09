@@ -26,19 +26,18 @@ public class MainPagerAdapter extends FragmentStateAdapter {
 
     @Override
     public int getItemCount() {
-        // Only show MindPulse tab when enabled (after IRB approval)
-        return BuildConfig.MINDPULSE_ENABLED ? 2 : 1;
+        // Show both tabs: ScreenLife (screenshots) and Video
+        return 2;
     }
 
     public String getTabTitle(int position) {
         switch (position) {
             case 0:
-                return "MindPulse";
+                return "ScreenLife";
             case 1:
-                // MindPulse tab - only visible when MINDPULSE_ENABLED = true
-                return BuildConfig.MINDPULSE_ENABLED ? "MindPulse" : "MindPulse";
+                return "Video";
             default:
-                return "MindPulse";
+                return "ScreenLife";
         }
     }
 }
