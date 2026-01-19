@@ -1,6 +1,7 @@
 package com.screenomics;
 
 import android.app.AlarmManager;
+import android.app.AppOpsManager;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -11,8 +12,10 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PowerManager;
 import androidx.preference.PreferenceManager;
 
 import android.provider.Settings;
@@ -209,6 +212,12 @@ public class MainActivity extends AppCompatActivity {
         File f_encrypt = new File(getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");
         if (!f_image.exists()) f_image.mkdir();
         if (!f_encrypt.exists()) f_encrypt.mkdir();
+
+        // Request battery optimization exemption for reliable background capture
+        requestBatteryOptimizationExemption();
+
+        // Check and request usage stats permission
+        checkUsageStatsPermission();
 
         // Real-time upload enabled - files uploaded immediately after creation
         Log.i("MainActivity", "Real-time upload enabled");
@@ -520,6 +529,64 @@ public class MainActivity extends AppCompatActivity {
         // or we can send a broadcast to notify fragments
         Intent broadcastIntent = new Intent("com.screenomics.RESET_CAPTURE_STATE");
         sendBroadcast(broadcastIntent);
+    }
+
+    private void requestBatteryOptimizationExemption() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        String packageName = getPackageName();
+
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            Log.i(TAG, "Requesting battery optimization exemption");
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + packageName));
+            try {
+                startActivity(intent);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to request battery optimization exemption", e);
+                // Fallback: open battery optimization settings
+                try {
+                    Intent fallbackIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    startActivity(fallbackIntent);
+                } catch (Exception e2) {
+                    Log.e(TAG, "Failed to open battery settings", e2);
+                }
+            }
+        } else {
+            Log.i(TAG, "Battery optimization already disabled for this app");
+        }
+    }
+
+    private void checkUsageStatsPermission() {
+        if (!hasUsageStatsPermission()) {
+            Log.i(TAG, "Usage stats permission not granted, showing dialog");
+            new AlertDialog.Builder(this)
+                    .setTitle("Permission Required")
+                    .setMessage("MindPulse needs Usage Access permission to track which apps you use. Please enable it in the next screen.")
+                    .setPositiveButton("Open Settings", (dialog, which) -> {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to open usage access settings", e);
+                            Toast.makeText(this, "Please enable Usage Access in Settings > Apps > Special Access", Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .setNegativeButton("Later", (dialog, which) -> {
+                        Log.w(TAG, "User declined usage stats permission");
+                        dialog.dismiss();
+                    })
+                    .setCancelable(false)
+                    .show();
+        } else {
+            Log.i(TAG, "Usage stats permission already granted");
+        }
+    }
+
+    private boolean hasUsageStatsPermission() {
+        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), getPackageName());
+        return mode == AppOpsManager.MODE_ALLOWED;
     }
 
 }

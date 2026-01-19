@@ -28,6 +28,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.Process;
 import androidx.preference.PreferenceManager;
 import android.util.Log;
@@ -86,6 +87,7 @@ public class CaptureService extends Service {
     private boolean mInitializing = false;
 
     private ActivityManager mActivityManager;
+    private PowerManager.WakeLock mWakeLock;
 
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
@@ -200,6 +202,14 @@ public class CaptureService extends Service {
                 mMediaProjection = null;
                 mInitializing = false;
                 Log.w(TAG, "MediaProjection invalidated, cleared state");
+
+                // Notify user that capture was stopped
+                showStoppedNotification();
+
+                // Update SharedPreferences to reflect stopped state
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(CaptureService.this);
+                prefs.edit().putBoolean("recordingState", false).apply();
+
             } catch (RuntimeException e) {
                 Log.e(TAG, "Error handling MediaProjection stop", e);
                 e.printStackTrace();
@@ -216,6 +226,12 @@ public class CaptureService extends Service {
 
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         mKeyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+
+        // Acquire WakeLock to prevent CPU sleep during capture
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        mWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MindPulse:CaptureWakeLock");
+        mWakeLock.acquire();
+        Log.i(TAG, "WakeLock acquired");
 
         mActivityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         captureInterval = new Runnable() {
@@ -535,6 +551,13 @@ public class CaptureService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopCapturing();
+
+        // Release WakeLock
+        if (mWakeLock != null && mWakeLock.isHeld()) {
+            mWakeLock.release();
+            Log.i(TAG, "WakeLock released");
+        }
+
         Log.e(TAG, "I'm destroyed!");
     }
 
@@ -608,6 +631,46 @@ public class CaptureService extends Service {
             );
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(serviceChannel);
+
+            // Create alert channel for stopped notifications
+            NotificationChannel alertChannel = new NotificationChannel(
+                    "screenomics_alert_id",
+                    "MindPulse Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            alertChannel.setDescription("Alerts when screen capture stops");
+            notificationManager.createNotificationChannel(alertChannel);
+        }
+    }
+
+    private void showStoppedNotification() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        int intentFlags;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            intentFlags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
+        } else {
+            intentFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        }
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, intentFlags);
+
+        Notification notification = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notification = new Notification.Builder(this, "screenomics_alert_id")
+                    .setSmallIcon(R.drawable.dna)
+                    .setContentTitle("MindPulse Capture Stopped")
+                    .setContentText("Screen capture was stopped. Tap to restart.")
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .build();
+        }
+
+        if (notification != null) {
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.notify(100, notification);
+            Log.i(TAG, "Stopped notification shown to user");
         }
     }
 }

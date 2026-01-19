@@ -3,20 +3,18 @@ title Building UW Madison Screenomics - Final Release
 color 0A
 
 echo =====================================================
-echo UW Madison Screenomics - FINAL RELEASE BUILD v1.0
+echo UW Madison Screenomics - RELEASE BUILD v1.15
 echo =====================================================
 echo.
 echo Package: edu.wisc.chm.screenomics
-echo Version: 1.0 (versionCode: 1)
+echo Version: 1.15 (versionCode: 17)
 echo.
-echo CHANGES APPLIED:
-echo [X] Package name changed to UW Madison
-echo [X] MindPulse/Video recording HIDDEN (not IRB approved)
-echo [X] Video reminders DISABLED on boot
-echo [X] Only ScreenLife tab visible
-echo.
-echo The video code remains intact for future updates
-echo when IRB approval is obtained.
+echo CHANGES IN THIS VERSION:
+echo [X] Fixed screenshot stopping after 10 minutes
+echo [X] Added WakeLock for reliable background capture
+echo [X] Added battery optimization bypass prompt
+echo [X] Added Usage Access permission prompt
+echo [X] Added notification when capture stops
 echo.
 pause
 
@@ -60,28 +58,16 @@ echo =====================================================
 echo.
 echo RELEASE READY FOR GOOGLE PLAY:
 echo --------------------------------
-echo File: app\build\outputs\bundle\release\app-release.aab
+echo File: app\build\outputs\bundle\standardRelease\app-standard-release.aab
 echo Package: edu.wisc.chm.screenomics
-echo Version: 1.0
-echo.
-echo FEATURES STATUS:
-echo ----------------
-echo [✓] ScreenLife recording: ENABLED
-echo [✗] MindPulse video: HIDDEN (code preserved)
-echo [✗] Video reminders: DISABLED
-echo.
-echo TO RE-ENABLE VIDEO FEATURES LATER:
-echo -----------------------------------
-echo 1. Edit MainPagerAdapter.java
-echo 2. Set MINDPULSE_ENABLED = true
-echo 3. Uncomment VideoReminderScheduler.onReceive()
-echo 4. Rebuild the app
+echo Version: 1.15 (Build 17)
 echo.
 echo UPLOAD TO GOOGLE PLAY:
 echo ----------------------
 echo 1. Go to: https://play.google.com/console
-echo 2. Create NEW app (not an update)
-echo 3. Upload the AAB file
-echo 4. Complete store listing
+echo 2. Select your app
+echo 3. Production ^> Create new release
+echo 4. Upload the AAB file
+echo 5. Add release notes
 echo.
 pause
