@@ -50,6 +50,13 @@ Your data is collected solely for academic research purposes:
 - **Settings Access:** The app provides a "Usage Stats Settings" button to manage this permission
 - **Required for Research:** Essential for understanding smartphone usage behaviors and patterns
 
+### Accessibility Service Permission (if enabled)
+- **Purpose:** Optional alternative screenshot capture method on supported Android devices
+- **Data Collected:** Encrypted screenshots and related metadata while capture is enabled
+- **Sensitive Content Notice:** Screenshots may contain personal or sensitive information visible on your device, including messages, emails, photos, app activity, browsing activity, and other on-screen content
+- **Data Use:** Collected only for approved research purposes by the UW-Madison ASSIST Lab research team
+- **User Control:** Participants can decline or disable this permission at any time in app controls and Android Accessibility settings
+
 ### Other Permissions
 - **Screen Recording:** To capture screenshots for usage pattern analysis
 - **Storage Access:** To save encrypted research data locally before secure transmission

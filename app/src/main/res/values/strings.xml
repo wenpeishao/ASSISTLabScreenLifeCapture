@@ -10,6 +10,8 @@
     <string name="participantKey" />
     <string name="encryptedKey" />
     <string name="title_activity_dev_tools">DevToolsActivity</string>
+    <string name="accessibility_capture_service_label">MindPulse Accessibility Capture</string>
+    <string name="accessibility_capture_service_description">MindPulse uses this AccessibilityService to capture encrypted screenshots for an IRB-approved UW-Madison research study.\n\nBecause screenshots capture everything visible on screen, collected data may include: web browsing history; emails; SMS/MMS messages; other in-app messages; precise location; personal identifiers (name, email, phone, address); financial information; health data; photos; app usage; contacts; calendar events; search history; and other on-screen content.\n\nAdditional data collected separately: app usage metadata (active app name, timestamps); device diagnostic logs (for research quality assurance); location data (GPS coordinates collected alongside screenshots).\n\nAll data is encrypted on device and transmitted securely to authorized UW-Madison research systems. Participants can disable capture at any time.</string>
     <!--
     This string is used for square devices and overridden by hello_world in
     values-round/strings.xml for round devices.

@@ -3,6 +3,7 @@ package com.screenomics;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 
 public class SecureFileUtils {
@@ -22,8 +23,9 @@ public class SecureFileUtils {
         // Map app types to server expected types
         String serverType = mapToServerType(type);
 
-        // Generate timestamp in ISO8601 format with timezone (server expects colons)
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+        // Generate UTC timestamp in ISO8601 format
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         String timestamp = sdf.format(new Date());
 
         // Replace colons and timezone format for filename compatibility

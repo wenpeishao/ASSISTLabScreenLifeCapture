@@ -33,12 +33,20 @@ import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
 
 import java.io.File;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.stream.Stream;
+import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ScreenLifeFragment extends Fragment {
     private static final String TAG = "ScreenLifeFragment";
+    private static final String PREF_USE_ACCESSIBILITY_CAPTURE = "useAccessibilityCapture";
     
     private Switch switchCapture;
     private Switch mobileDataUse;
@@ -48,17 +56,32 @@ public class ScreenLifeFragment extends Fragment {
     private TextView numUploadText;
     private Button uploadButton;
     private Button updateQRButton;
-    private Button statsSettingsButton;
+    // statsSettingsButton removed - each permission row opens its own settings
+    private Button accessibilityCaptureButton;
     private Timer numImageRefreshTimer;
     private UploadService uploadService;
+    private TextView accessibilityModeStatus;
+    private final ExecutorService statsExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean statsRefreshInFlight = new AtomicBoolean(false);
 
     // Permission status dots
     private View cameraPermissionDot;
     private View locationPermissionDot;
     private View usageAccessDot;
     private View notificationPermissionDot;
+    private View batteryPermissionDot;
+    private View accessibilityPermissionDot;
+
+    // Permission rows (clickable)
+    private View cameraPermissionRow;
+    private View locationPermissionRow;
+    private View usageAccessRow;
+    private View notificationPermissionRow;
+    private View batteryPermissionRow;
+    private View accessibilityPermissionRow;
 
     private boolean justStartedCapture = false;
+    private boolean pendingCaptureStart = false;
     private Handler captureCheckHandler = new Handler();
     private Runnable captureCheckRunnable;
 
@@ -95,13 +118,25 @@ public class ScreenLifeFragment extends Fragment {
         numUploadText = view.findViewById(R.id.uploadNumber);
         uploadButton = view.findViewById(R.id.uploadButton);
         updateQRButton = view.findViewById(R.id.updateQRButton);
-        statsSettingsButton = view.findViewById(R.id.settingsButton);
+        // statsSettingsButton removed - each permission row opens its own settings
+        accessibilityCaptureButton = view.findViewById(R.id.accessibilityCaptureButton);
+        accessibilityModeStatus = view.findViewById(R.id.accessibilityModeStatus);
 
         // Permission status dots
         cameraPermissionDot = view.findViewById(R.id.cameraPermissionDot);
         locationPermissionDot = view.findViewById(R.id.locationPermissionDot);
         usageAccessDot = view.findViewById(R.id.usageAccessDot);
         notificationPermissionDot = view.findViewById(R.id.notificationPermissionDot);
+        batteryPermissionDot = view.findViewById(R.id.batteryPermissionDot);
+        accessibilityPermissionDot = view.findViewById(R.id.accessibilityPermissionDot);
+
+        // Permission rows (clickable)
+        cameraPermissionRow = view.findViewById(R.id.cameraPermissionRow);
+        locationPermissionRow = view.findViewById(R.id.locationPermissionRow);
+        usageAccessRow = view.findViewById(R.id.usageAccessRow);
+        notificationPermissionRow = view.findViewById(R.id.notificationPermissionRow);
+        batteryPermissionRow = view.findViewById(R.id.batteryPermissionRow);
+        accessibilityPermissionRow = view.findViewById(R.id.accessibilityPermissionRow);
     }
 
     private void setupListeners() {
@@ -114,12 +149,24 @@ public class ScreenLifeFragment extends Fragment {
             if (isChecked) {
                 Log.d("ScreenLifeFragment", "User turned switch ON - starting capture");
                 justStartedCapture = true;  // Mark that user just started it
-                editor.putBoolean("recordingState", true);
-                editor.apply();
+
+                boolean useA11y = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
+                boolean a11yReady = useA11y && AccessibilityCaptureService.isServiceEnabled(requireContext());
+
+                if (!useA11y || a11yReady) {
+                    // Standard capture or accessibility already enabled
+                    editor.putBoolean("recordingState", true);
+                    editor.apply();
+                    captureState.setText(getResources().getString(R.string.capture_state_on));
+                    captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.light_sea_green));
+                } else {
+                    // Accessibility needed but not yet enabled -- defer recordingState
+                    pendingCaptureStart = true;
+                    Log.d("ScreenLifeFragment", "Accessibility not enabled yet, deferring recordingState");
+                }
+
                 ((MainActivity) requireActivity()).startLocationService();
                 ((MainActivity) requireActivity()).startMediaProjectionRequest();
-                captureState.setText(getResources().getString(R.string.capture_state_on));
-                captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.light_sea_green));
                 // Reset flag after some time
                 captureCheckHandler.postDelayed(() -> justStartedCapture = false, 5000);
             } else {
@@ -145,9 +192,51 @@ public class ScreenLifeFragment extends Fragment {
             showUpdateQRCodeDialog();
         });
 
-        statsSettingsButton.setOnClickListener(view -> {
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+        // Permission row click listeners -- each opens its relevant settings
+        cameraPermissionRow.setOnClickListener(v -> openAppSettings());
+        locationPermissionRow.setOnClickListener(v -> openAppSettings());
+        usageAccessRow.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            } catch (Exception e) {
+                openAppSettings();
+            }
         });
+        notificationPermissionRow.setOnClickListener(v -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                    intent.putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
+                    startActivity(intent);
+                } catch (Exception e) {
+                    openAppSettings();
+                }
+            } else {
+                openAppSettings();
+            }
+        });
+        batteryPermissionRow.setOnClickListener(v -> {
+            try {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
+                startActivity(intent);
+            } catch (Exception e) {
+                try {
+                    startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                } catch (Exception e2) {
+                    openAppSettings();
+                }
+            }
+        });
+        accessibilityPermissionRow.setOnClickListener(v -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                openAccessibilitySettings();
+            } else {
+                Toast.makeText(requireContext(), "Accessibility Capture requires Android 11+", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        accessibilityCaptureButton.setOnClickListener(view -> handleAccessibilityCaptureSelection());
 
         uploadButton.setOnClickListener(v -> {
             if (!InternetConnection.checkWiFiConnection(requireContext())) {
@@ -157,14 +246,14 @@ public class ScreenLifeFragment extends Fragment {
                 alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Upload",
                         (dialog, which) -> {
                             dialog.dismiss();
-                            UploadScheduler.startUpload(requireContext(), true);
+                            UploadScheduler.startUpload(requireContext(), true, true);
                             Toast.makeText(requireContext(), "Uploading...", Toast.LENGTH_SHORT).show();
                         });
                 alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
                         (dialog, which) -> dialog.dismiss());
                 alertDialog.show();
             } else {
-                UploadScheduler.startUpload(requireContext(), false);
+                UploadScheduler.startUpload(requireContext(), false, true);
                 Toast.makeText(requireContext(), "Uploading...", Toast.LENGTH_SHORT).show();
             }
         });
@@ -246,6 +335,24 @@ public class ScreenLifeFragment extends Fragment {
 
         startImageRefreshTimer();
         updatePermissionStatus();
+        updateAccessibilityCaptureUi();
+
+        // If user toggled capture ON but accessibility wasn't enabled yet, check now
+        if (pendingCaptureStart) {
+            pendingCaptureStart = false;
+            if (AccessibilityCaptureService.isServiceEnabled(requireContext())) {
+                Log.i("ScreenLifeFragment", "Accessibility now enabled -- confirming recordingState");
+                prefs.edit().putBoolean("recordingState", true).apply();
+                switchCapture.setChecked(true);
+                captureState.setText(getResources().getString(R.string.capture_state_on));
+                captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.light_sea_green));
+            } else {
+                Log.w("ScreenLifeFragment", "Accessibility still not enabled -- resetting capture switch");
+                switchCapture.setChecked(false);
+                captureState.setText(getResources().getString(R.string.capture_state_off));
+                captureState.setTextColor(ContextCompat.getColor(requireContext(), R.color.white_isabelline));
+            }
+        }
     }
 
     @Override
@@ -279,55 +386,126 @@ public class ScreenLifeFragment extends Fragment {
         numImageRefreshTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (getActivity() == null) return;
-                getActivity().runOnUiThread(() -> {
-                    File outputDir = new File(requireContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt");
-                    File[] allFiles = outputDir.listFiles();
-                    if (allFiles == null) return;
-                    
-                    int numImages = 0;
-                    int numVideos = 0;
-                    float bytesTotal = 0;
-                    
-                    for (File file : allFiles) {
-                        bytesTotal += file.length();
-                        if (file.getName().contains("_video.mp4")) {
-                            numVideos++;
-                        } else {
-                            numImages++;
-                        }
-                    }
-                    
-                    numImagesText.setText(String.format("Images: %d, Videos: %d (%.2fMB)", numImages, numVideos, bytesTotal / 1024 / 1024));
-                    Log.i(TAG, "Files - Images:" + numImages + ", Videos:" + numVideos);
-                    
-                    if (uploadService != null) {
-                        if (uploadService.status == UploadService.Status.SENDING) {
-                            String progressText = "Uploading: " + uploadService.numUploaded + "/" + uploadService.numTotal;
-                            if (uploadService.numFailed > 0) {
-                                progressText += " (" + uploadService.numFailed + " failed)";
-                            }
-                            numUploadText.setText(progressText);
-                        } else if (uploadService.status == UploadService.Status.SUCCESS) {
-                            numUploadText.setText("Successfully uploaded " + uploadService.numUploaded + " files at " + uploadService.lastActivityTime);
-                        } else if (uploadService.status == UploadService.Status.FAILED) {
-                            if ("PARTIAL_FAILURE".equals(uploadService.errorCode)) {
-                                numUploadText.setText("Partially uploaded: " + uploadService.numUploaded + " success, " + 
-                                    uploadService.numFailed + " failed at " + uploadService.lastActivityTime);
-                            } else {
-                                numUploadText.setText("Failed uploading " + uploadService.numToUpload + " files at " + 
-                                    uploadService.lastActivityTime + " with code " + uploadService.errorCode);
-                            }
-                        } else {
-                            numUploadText.setText(uploadService.status.toString());
-                        }
-                    }
+                if (!isAdded() || statsExecutor.isShutdown()) return;
+                if (!statsRefreshInFlight.compareAndSet(false, true)) return;
 
-                    // Update permission status regularly
-                    updatePermissionStatus();
+                statsExecutor.execute(() -> {
+                    try {
+                        File extDir = requireContext().getExternalFilesDir(null);
+                        if (extDir == null) return;
+                        File outputDir = new File(extDir.getAbsolutePath() + File.separator + "encrypt");
+                        FileStats stats = countFiles(outputDir);
+
+                        if (getActivity() == null) return;
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            numImagesText.setText(String.format(
+                                    Locale.US,
+                                    "Images: %d, Videos: %d (%.2fMB)",
+                                    stats.numImages,
+                                    stats.numVideos,
+                                    stats.bytesTotal / 1024f / 1024f
+                            ));
+                            Log.i(TAG, "Files - Images:" + stats.numImages + ", Videos:" + stats.numVideos);
+
+                            if (uploadService != null) {
+                                if (uploadService.status == UploadService.Status.SENDING) {
+                                    String progressText = "Uploading: " + uploadService.numUploaded + "/" + uploadService.numTotal;
+                                    if (uploadService.numFailed > 0) {
+                                        progressText += " (" + uploadService.numFailed + " failed)";
+                                    }
+                                    numUploadText.setText(progressText);
+                                } else if (uploadService.status == UploadService.Status.SUCCESS) {
+                                    numUploadText.setText("Successfully uploaded " + uploadService.numUploaded + " files at " + uploadService.lastActivityTime);
+                                } else if (uploadService.status == UploadService.Status.FAILED) {
+                                    if ("PARTIAL_FAILURE".equals(uploadService.errorCode)) {
+                                        numUploadText.setText("Partially uploaded: " + uploadService.numUploaded + " success, " +
+                                                uploadService.numFailed + " failed at " + uploadService.lastActivityTime);
+                                    } else {
+                                        numUploadText.setText("Failed uploading " + uploadService.numToUpload + " files at " +
+                                                uploadService.lastActivityTime + " with code " + uploadService.errorCode);
+                                    }
+                                } else {
+                                    numUploadText.setText(uploadService.status.toString());
+                                }
+                            }
+
+                            updatePermissionStatus();
+                            updateAccessibilityCaptureUi();
+                        });
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed to refresh file stats", e);
+                    } finally {
+                        statsRefreshInFlight.set(false);
+                    }
                 });
             }
         }, 500, 5000);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        statsExecutor.shutdownNow();
+    }
+
+    private FileStats countFiles(File outputDir) {
+        FileStats stats = new FileStats();
+        if (outputDir == null || !outputDir.exists()) {
+            return stats;
+        }
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(outputDir.toPath())) {
+            for (Path path : stream) {
+                if (!Files.isRegularFile(path)) continue;
+                stats.bytesTotal += Files.size(path);
+                String name = path.getFileName().toString().toLowerCase(Locale.US);
+                if (name.contains("_video.mp4") || name.endsWith(".mp4")) {
+                    stats.numVideos++;
+                } else if (name.endsWith(".enc")
+                        && !name.endsWith("_metadata.enc")
+                        && !name.endsWith("_applog.enc")
+                        && !name.endsWith("_logcat.enc")
+                        && !name.endsWith("_diagnostics.enc")
+                        && !name.endsWith("_gps.enc")
+                        && !name.endsWith("_appusage.enc")
+                        && !name.endsWith("_logdata.enc")
+                        && !name.endsWith("_devicestate.enc")) {
+                    stats.numImages++;
+                }
+                // .meta files and non-image .enc files are excluded from counts
+            }
+            return stats;
+        } catch (Exception e) {
+            // Fallback for filesystem implementations that don't support DirectoryStream reliably.
+            File[] allFiles = outputDir.listFiles();
+            if (allFiles == null) return stats;
+            for (File file : allFiles) {
+                if (!file.isFile()) continue;
+                stats.bytesTotal += file.length();
+                String name = file.getName().toLowerCase(Locale.US);
+                if (name.contains("_video.mp4") || name.endsWith(".mp4")) {
+                    stats.numVideos++;
+                } else if (name.endsWith(".enc")
+                        && !name.endsWith("_metadata.enc")
+                        && !name.endsWith("_applog.enc")
+                        && !name.endsWith("_logcat.enc")
+                        && !name.endsWith("_diagnostics.enc")
+                        && !name.endsWith("_gps.enc")
+                        && !name.endsWith("_appusage.enc")
+                        && !name.endsWith("_logdata.enc")
+                        && !name.endsWith("_devicestate.enc")) {
+                    stats.numImages++;
+                }
+            }
+            return stats;
+        }
+    }
+
+    private static class FileStats {
+        int numImages;
+        int numVideos;
+        long bytesTotal;
     }
 
     private final ServiceConnection uploaderServiceConnection = new ServiceConnection() {
@@ -360,13 +538,14 @@ public class ScreenLifeFragment extends Fragment {
         builder.setTitle("Update QR Code");
 
         String message = "Current Registration:\n\n";
+        String shortHash = currentHash.length() > 12 ? currentHash.substring(0, 12) : currentHash;
         if (isTester) {
             message += "Status: TESTER ACCOUNT\n";
-            message += "Test ID: " + currentHash.substring(0, 12) + "...\n\n";
+            message += "Test ID: " + shortHash + "...\n\n";
             message += "This will replace your test ID with a real QR code registration.";
         } else {
             message += "Status: Regular Account\n";
-            message += "Hash: " + currentHash.substring(0, 12) + "...\n\n";
+            message += "Hash: " + shortHash + "...\n\n";
             message += "This will replace your current QR code registration.";
         }
 
@@ -411,7 +590,9 @@ public class ScreenLifeFragment extends Fragment {
     private void generateNewTestId() {
         // Similar logic to RegisterActivity but simpler
         try {
-            String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
+            java.text.SimpleDateFormat keyTsFmt = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US);
+            keyTsFmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+            String timestamp = keyTsFmt.format(new java.util.Date());
             java.security.SecureRandom random = new java.security.SecureRandom();
 
             StringBuilder testKey = new StringBuilder("TEST_");
@@ -429,9 +610,9 @@ public class ScreenLifeFragment extends Fragment {
             Log.d("ScreenLifeFragment", "Generated test ID length: " + key.length());
             Log.d("ScreenLifeFragment", "Generated test ID: " + key);
 
-            // Generate hash (simplified version)
+            // Generate hash
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            md.update(Converter.hexStringToByteArray(key));
+            md.update(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             byte[] hashBytes = md.digest();
 
             java.math.BigInteger num = new java.math.BigInteger(1, hashBytes);
@@ -447,7 +628,9 @@ public class ScreenLifeFragment extends Fragment {
             editor.putString("key", key);
             editor.putString("hash", hash);
             editor.putBoolean("isTester", true);
-            editor.putString("testerTimestamp", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date()));
+            java.text.SimpleDateFormat testerTsFmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss 'UTC'", java.util.Locale.US);
+            testerTsFmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+            editor.putString("testerTimestamp", testerTsFmt.format(new java.util.Date()));
             editor.apply();
 
             // Show dialog with copy option
@@ -476,21 +659,169 @@ public class ScreenLifeFragment extends Fragment {
 
         // Check Usage Access Permission
         boolean usageAccessGranted = false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            AppOpsManager appOps = (AppOpsManager) requireContext().getSystemService(Context.APP_OPS_SERVICE);
-            int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
-                android.os.Process.myUid(), requireContext().getPackageName());
-            usageAccessGranted = mode == AppOpsManager.MODE_ALLOWED;
-        }
+        AppOpsManager appOps = (AppOpsManager) requireContext().getSystemService(Context.APP_OPS_SERVICE);
+        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+            android.os.Process.myUid(), requireContext().getPackageName());
+        usageAccessGranted = mode == AppOpsManager.MODE_ALLOWED;
         updatePermissionDot(usageAccessDot, usageAccessGranted);
 
         // Check Notification Permission (Android 13+)
-        boolean notificationGranted = true; // Default true for older versions
+        boolean notificationGranted = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationGranted = ContextCompat.checkSelfPermission(requireContext(),
                 Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         }
         updatePermissionDot(notificationPermissionDot, notificationGranted);
+
+        // Check Battery Optimization exemption
+        android.os.PowerManager pm = (android.os.PowerManager)
+                requireContext().getSystemService(Context.POWER_SERVICE);
+        boolean batteryExempt = pm.isIgnoringBatteryOptimizations(requireContext().getPackageName());
+        updatePermissionDot(batteryPermissionDot, batteryExempt);
+
+        // Check Accessibility Capture permission (Android 11+)
+        boolean accessibilityGranted;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            accessibilityGranted = AccessibilityCaptureService.isServiceEnabled(requireContext());
+        } else {
+            // Not applicable on Android 10, show as granted (N/A)
+            accessibilityGranted = true;
+        }
+        updatePermissionDot(accessibilityPermissionDot, accessibilityGranted);
+
+        // Hide accessibility row on devices that don't support it
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R && accessibilityPermissionRow != null) {
+            accessibilityPermissionRow.setVisibility(View.GONE);
+        }
+    }
+
+    private void handleAccessibilityCaptureSelection() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        boolean accessibilityModeEnabled = prefs.getBoolean(PREF_USE_ACCESSIBILITY_CAPTURE, false);
+
+        if (accessibilityModeEnabled) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Accessibility Capture Enabled")
+                    .setMessage("Accessibility Capture is already selected for screen capture.\n\nOpen Accessibility settings if you still need to grant permission, or switch back to standard screen recording.")
+                    .setPositiveButton("Open Settings", (dialog, which) -> openAccessibilitySettings())
+                    .setNeutralButton("Use Standard Capture", (dialog, which) -> disableAccessibilityCapture())
+                    .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                    .show();
+            return;
+        }
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Accessibility API Data Disclosure")
+                .setMessage("MindPulse uses Android AccessibilityService API to capture encrypted "
+                        + "screenshots for this IRB-approved UW-Madison research study.\n\n"
+                        + "DATA COLLECTED VIA ACCESSIBILITYSERVICE:\n\n"
+                        + "Because screenshots capture everything visible on your screen, "
+                        + "the following data types may be collected:\n\n"
+                        + "- Web browsing history\n"
+                        + "- Emails\n"
+                        + "- SMS or MMS messages\n"
+                        + "- Other in-app messages\n"
+                        + "- Precise location\n"
+                        + "- Personal identifiers (name, email, address, phone number)\n"
+                        + "- Race and ethnicity; political or religious beliefs\n"
+                        + "- Sexual orientation or gender identity\n"
+                        + "- Financial information (credit/debit/bank accounts, purchases)\n"
+                        + "- Health and fitness information\n"
+                        + "- Photos, videos, voice/sound recordings, music, files, documents\n"
+                        + "- Calendar events and contacts\n"
+                        + "- Page views, taps, in-app search history\n"
+                        + "- Installed apps and other user-generated content\n"
+                        + "- Device or other identifiers\n\n"
+                        + "ADDITIONAL DATA COLLECTED:\n\n"
+                        + "- App usage metadata (active app name, timestamps)\n"
+                        + "- Device diagnostic logs (for research quality assurance)\n"
+                        + "- Location data (GPS coordinates collected alongside screenshots)\n\n"
+                        + "PURPOSE:\n"
+                        + "This data is used exclusively for approved academic research on "
+                        + "smartphone use and digital behavior at UW-Madison.\n\n"
+                        + "SECURITY:\n"
+                        + "All data is encrypted on your device and transmitted securely to "
+                        + "authorized UW-Madison research systems.\n\n"
+                        + "Participation is voluntary. You can decline now or disable "
+                        + "Accessibility Capture at any time from app controls and Android settings.\n\n"
+                        + "By tapping \"Agree and Continue\", you consent to this data collection.\n\n"
+                        + "On the next screen:\n"
+                        + "1. Open Accessibility\n"
+                        + "2. Select MindPulse Accessibility Capture\n"
+                        + "3. Turn it on\n"
+                        + "4. Return to MindPulse")
+                .setPositiveButton("Agree and Continue", (dialog, which) -> enableAccessibilityCapture())
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private void enableAccessibilityCapture() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        prefs.edit().putBoolean(PREF_USE_ACCESSIBILITY_CAPTURE, true).apply();
+
+        // Stop the MediaProjection service so the app does not run both capture modes.
+        requireContext().stopService(new Intent(requireContext(), CaptureService.class));
+
+        updateAccessibilityCaptureUi();
+        openAccessibilitySettings();
+    }
+
+    private void disableAccessibilityCapture() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        prefs.edit().putBoolean(PREF_USE_ACCESSIBILITY_CAPTURE, false).apply();
+
+        updateAccessibilityCaptureUi();
+        Toast.makeText(requireContext(),
+                "Accessibility Capture disabled. Turn Screen Capture off and back on to use standard capture.",
+                Toast.LENGTH_LONG).show();
+    }
+
+    private void openAccessibilitySettings() {
+        try {
+            startActivity(AccessibilityCaptureService.buildAccessibilitySettingsIntent());
+            Toast.makeText(requireContext(),
+                    "Enable MindPulse Accessibility Capture, then return to the app.",
+                    Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open accessibility settings", e);
+            Toast.makeText(requireContext(),
+                    "Open Settings > Accessibility and enable MindPulse Accessibility Capture.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updateAccessibilityCaptureUi() {
+        if (getActivity() == null || accessibilityCaptureButton == null || accessibilityModeStatus == null) {
+            return;
+        }
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        boolean accessibilityModeEnabled = prefs.getBoolean(PREF_USE_ACCESSIBILITY_CAPTURE, false);
+        boolean accessibilityGranted = AccessibilityCaptureService.isServiceEnabled(requireContext());
+
+        if (!accessibilityModeEnabled) {
+            accessibilityModeStatus.setText("Standard screen recording is selected.");
+            accessibilityCaptureButton.setText("Enable Accessibility Capture");
+            return;
+        }
+
+        if (accessibilityGranted) {
+            accessibilityModeStatus.setText("Accessibility Capture is selected and permission is granted.");
+            accessibilityCaptureButton.setText("Accessibility Capture Enabled");
+        } else {
+            accessibilityModeStatus.setText("Accessibility Capture is selected. Finish setup in Accessibility settings.");
+            accessibilityCaptureButton.setText("Finish Accessibility Setup");
+        }
+    }
+
+    private void openAppSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open app settings", e);
+        }
     }
 
     private void updatePermissionDot(View dot, boolean granted) {

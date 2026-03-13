@@ -8,5 +8,8 @@ public class Constants {
     public final static int BATCH_SIZE_DEFAULT = 10;
     public final static int MAX_TO_SEND_DEFAULT= 0;
     public final static int MAX_BATCHES_TO_SEND = 10;
-    public final static int REQ_TIMEOUT = 1200;
+    public final static int REQ_TIMEOUT_SECS = 120;
+    public final static int CONNECT_TIMEOUT_SECS = 30;
+
+    public final static String LOG_UPLOAD_ADDRESS = BASE_URL + "/api/v1/logs";
 }

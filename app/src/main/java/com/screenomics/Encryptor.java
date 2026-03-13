@@ -1,14 +1,11 @@
 package com.screenomics;
 
 import android.util.Base64;
-import android.util.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
-import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.MGF1ParameterSpec;
@@ -21,21 +18,15 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 /**
- * Unified Encryptor for MindPulse.
+ * Encryptor for MindPulse.
  *
- * Primary (modern) API:
+ * API:
  *  - encryptFileToEnc(plaintextFile, encOutFile, serverImagePublicKeyPem)
  *      * AES-GCM, 12-byte nonce prefixed to the .enc
  *      * RSA-OAEP(SHA-256) wraps the AES key -> base64 returned for metadata
- *
- * Compatibility APIs (kept so legacy call sites compile):
- *  - deriveAesKeyFromToken(String token): SHA-256(token) -> 32 bytes
- *  - encryptFile(byte[] key, String inPath, String outPath, byte[] iv): SAFE COPY (no-op)
- *      * Rationale: real GCM encryption happens in Batch before upload.
  */
 public final class Encryptor {
 
-    private static final String TAG = "Encryptor";
     private Encryptor() {}
 
     // ---- GCM constants ----
@@ -83,7 +74,7 @@ public final class Encryptor {
                 while ((n = fis.read(buf)) != -1) {
                     cos.write(buf, 0, n);
                 }
-                cos.flush(); // doFinal on close
+                // CipherOutputStream.close() calls doFinal() internally
             }
         }
 
@@ -100,24 +91,6 @@ public final class Encryptor {
         String nonceB64     = Base64.encodeToString(nonce, Base64.NO_WRAP);
 
         return new Result(outEnc, aesKeyEncB64, nonceB64);
-    }
-
-    // ---- Compatibility surface (keep callers compiling while Batch does real encryption) ----
-
-    /** Legacy helper; still returns SHA-256(token) if any code relies on it. */
-    public static byte[] deriveAesKeyFromToken(String token) throws Exception {
-        MessageDigest sha = MessageDigest.getInstance("SHA-256");
-        return sha.digest((token != null ? token : "").getBytes(StandardCharsets.UTF_8));
-    }
-
-    /**
-     * Legacy AES-CBC signature. We now just COPY plaintext -> outPath.
-     * Real GCM encryption happens later in Batch before upload.
-     */
-    public static void encryptFile(byte[] key, String inPath, String outPath, byte[] iv) throws Exception {
-        copyFile(inPath, outPath);
-        Log.w(TAG, "encryptFile() compat path: copied " + inPath + " -> " + outPath
-                + " (GCM is performed by Batch.java)");
     }
 
     // ---- helpers ----
@@ -138,15 +111,4 @@ public final class Encryptor {
         return KeyFactory.getInstance("RSA").generatePublic(spec);
     }
 
-    private static void copyFile(String inPath, String outPath) throws Exception {
-        try (FileInputStream in = new FileInputStream(inPath);
-             FileOutputStream out = new FileOutputStream(outPath)) {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) {
-                out.write(buf, 0, n);
-            }
-            out.flush();
-        }
-    }
 }

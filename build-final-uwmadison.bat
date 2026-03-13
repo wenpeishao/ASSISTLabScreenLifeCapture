@@ -7,7 +7,7 @@ echo UW Madison Screenomics - RELEASE BUILD v1.15
 echo =====================================================
 echo.
 echo Package: edu.wisc.chm.screenomics
-echo Version: 1.15 (versionCode: 17)
+echo Version: 1.15 (versionCode: 18)
 echo.
 echo CHANGES IN THIS VERSION:
 echo [X] Fixed screenshot stopping after 10 minutes
@@ -60,7 +60,7 @@ echo RELEASE READY FOR GOOGLE PLAY:
 echo --------------------------------
 echo File: app\build\outputs\bundle\standardRelease\app-standard-release.aab
 echo Package: edu.wisc.chm.screenomics
-echo Version: 1.15 (Build 17)
+echo Version: 1.15 (Build 18)
 echo.
 echo UPLOAD TO GOOGLE PLAY:
 echo ----------------------

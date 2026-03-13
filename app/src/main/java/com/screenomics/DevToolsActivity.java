@@ -1,6 +1,7 @@
 package com.screenomics;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -10,6 +11,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,12 +46,15 @@ public class DevToolsActivity extends Activity {
         Button disableButton = findViewById(R.id.disableButton);
         Button wifiButton = findViewById(R.id.testWifiButton);
         Button mobileButton = findViewById(R.id.testMobileButton);
+        Button accessibilitySettingsButton = findViewById(R.id.openAccessibilitySettingsButton);
         TextView wifiResult = findViewById(R.id.wifiResultText);
         TextView mobileResult = findViewById(R.id.mobileResultText);
+        Switch accessibilityCaptureSwitch = findViewById(R.id.accessibilityCaptureSwitch);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         batchSizeInput.setText(String.valueOf(prefs.getInt("batchSize", Constants.BATCH_SIZE_DEFAULT)));
         maxSendInput.setText(String.valueOf(prefs.getInt("maxSend", Constants.MAX_TO_SEND_DEFAULT)));
+        accessibilityCaptureSwitch.setChecked(prefs.getBoolean("useAccessibilityCapture", false));
 
         wifiButton.setOnClickListener(view -> {
             if(InternetConnection.checkWiFiConnection(getApplicationContext())){
@@ -65,6 +70,23 @@ public class DevToolsActivity extends Activity {
                 mobileResult.setText("OK");
             }else{
                 mobileResult.setText("No Cell");
+            }
+        });
+
+        accessibilityCaptureSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean("useAccessibilityCapture", isChecked).apply();
+            if (isChecked) {
+                Toast.makeText(this, "Accessibility capture mode enabled for internal testing", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Accessibility capture mode disabled", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        accessibilitySettingsButton.setOnClickListener(v -> {
+            try {
+                startActivity(AccessibilityCaptureService.buildAccessibilitySettingsIntent());
+            } catch (Exception e) {
+                Toast.makeText(this, "Failed to open accessibility settings", Toast.LENGTH_LONG).show();
             }
         });
 

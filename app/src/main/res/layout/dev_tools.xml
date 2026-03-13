@@ -1,133 +1,355 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_margin="10dp"
-    android:background="@color/white_isabelline"
-    android:orientation="vertical"
-    android:padding="@dimen/box_inset_layout_padding"
+    android:background="@color/md_theme_surface"
     tools:context=".DevToolsActivity">
 
-    <Button
-        android:id="@+id/clearPrefs"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:text="Reset Username and Password" />
-
-    <Button
-        android:id="@+id/clearImages"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Clear Images" />
-
-    <Button
-        android:id="@+id/attemptUpload"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Attempt Upload in 10s" />
-
-    <Button
-        android:id="@+id/attemptUpload2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Attempt Upload in 5m" />
-
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="43dp"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <EditText
-            android:id="@+id/batchSizeInput"
-            android:layout_width="105dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ems="10"
-            android:digits="0123456789"
-            android:inputType="number" />
-
-        <Button
-            android:id="@+id/setBatchSizeButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Set Batch Size" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="43dp"
-        android:orientation="horizontal">
-
-        <EditText
-            android:id="@+id/maxSendInput"
-            android:layout_width="105dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ems="10"
-            android:digits="0123456789"
-            android:inputType="number" />
-
-        <Button
-            android:id="@+id/setMaxSendButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Set max num images to send" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="43dp"
-        android:orientation="horizontal">
-        <Button
-            android:id="@+id/testWifiButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Test WiFi Data"
-            />
         <TextView
-            android:id="@+id/wifiResultText"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/wifiTestEndpointResult"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="43dp"
-        android:orientation="horizontal">
-        <Button
-            android:id="@+id/testMobileButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Test Mobile Data"
-            />
-        <TextView
-            android:id="@+id/mobileResultText"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            />
+            android:text="Developer Tools"
+            android:textAppearance="@style/MindPulse.Text.HeadlineSmall"
+            android:textColor="@color/md_theme_onSurface"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 1. Data Management Card (outlined, error stroke) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:strokeColor="@color/md_theme_error">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Data Management"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_error"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/clearPrefs"
+                    style="@style/MindPulse.Button.Error"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Reset Username and Password" />
+
+                <Button
+                    android:id="@+id/clearImages"
+                    style="@style/MindPulse.Button.Error"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Clear Images" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 2. Upload Testing Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Upload Testing"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/attemptUpload"
+                    style="@style/MindPulse.Button.Tonal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Attempt Upload in 10s" />
+
+                <Button
+                    android:id="@+id/attemptUpload2"
+                    style="@style/MindPulse.Button.Tonal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Attempt Upload in 5m" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 3. Configuration Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Configuration"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Batch size">
+
+                        <EditText
+                            android:id="@+id/batchSizeInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:digits="0123456789"
+                            android:inputType="number" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <Button
+                        android:id="@+id/setBatchSizeButton"
+                        style="@style/MindPulse.Button.Tonal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Set" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Max images to send">
+
+                        <EditText
+                            android:id="@+id/maxSendInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:digits="0123456789"
+                            android:inputType="number" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <Button
+                        android:id="@+id/setMaxSendButton"
+                        style="@style/MindPulse.Button.Tonal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Set" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 4. Network Testing Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Network Testing"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/testWifiButton"
+                        style="@style/MindPulse.Button.Outlined"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Test WiFi" />
+
+                    <TextView
+                        android:id="@+id/wifiResultText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/wifiTestEndpointResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/testMobileButton"
+                        style="@style/MindPulse.Button.Outlined"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Test Mobile" />
+
+                    <TextView
+                        android:id="@+id/mobileResultText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Accessibility Capture"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Enable internal test mode"
+                            android:textAppearance="@style/MindPulse.Text.BodyLarge"
+                            android:textColor="@color/md_theme_onSurface" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Routes screen capture through Accessibility instead of MediaProjection"
+                            android:textAppearance="@style/MindPulse.Text.BodySmall"
+                            android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/accessibilityCaptureSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:showText="true"
+                        android:textOff="Off"
+                        android:textOn="On"
+                        android:thumbTint="@color/switch_thumb_tint"
+                        android:trackTint="@color/switch_track_tint" />
+
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/openAccessibilitySettingsButton"
+                    style="@style/MindPulse.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Open Accessibility Settings" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <Button
+            android:id="@+id/disableButton"
+            style="@style/MindPulse.Button.Text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Disable Dev Tools" />
+
     </LinearLayout>
 
-
-
-
-
-    <Button
-        android:id="@+id/disableButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Disable Dev Tools" />
-</LinearLayout>
+</ScrollView>

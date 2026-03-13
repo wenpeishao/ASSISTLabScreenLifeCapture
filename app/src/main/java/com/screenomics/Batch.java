@@ -6,13 +6,19 @@ import android.util.Log;
 
 import androidx.preference.PreferenceManager;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.UUID;
+import javax.net.ssl.SSLException;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -23,8 +29,6 @@ import okhttp3.Response;
 
 import org.json.JSONObject;
 import org.json.JSONException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Batch.java — uploads encrypted screenshot files to the MindPulse Receiver API
@@ -46,6 +50,8 @@ import java.util.regex.Pattern;
 public class Batch {
 
     private static final String TAG = "SCREENOMICS_UPLOAD";
+    private static final int MAX_UPLOAD_RETRIES = 3;
+    private static final long RETRY_BASE_DELAY_MS = 2000L;
 
     private static final MediaType OCTET = MediaType.parse("application/octet-stream");
     private static final MediaType JSON_TYPE = MediaType.parse("application/json");
@@ -68,9 +74,9 @@ public class Batch {
         this.client  = (providedClient != null) ? providedClient : HttpClientProvider.get(this.context);
     }
 
-    /** Main upload flow */
+    /** Main upload flow -- handles pre-encrypted .enc+.meta pairs and legacy plaintext */
     public String[] sendFiles() {
-        Log.d(TAG, "Starting encrypted batch upload of " + (files == null ? 0 : files.size()) + " files");
+        Log.d(TAG, "Starting batch upload of " + (files == null ? 0 : files.size()) + " files");
         if (files == null || files.isEmpty()) {
             Log.e(TAG, "No files to upload");
             return new String[]{"999", "NO FILES"};
@@ -81,15 +87,11 @@ public class Batch {
         String pptId       = prefs.getString("ppt_id", "");
         String studyId     = prefs.getString("study_id", "");
         String bearerToken = prefs.getString("enrollment_token", "");
-        String imagePubPem = prefs.getString("image_public_key", ""); // saved at enroll time
+        String imagePubPem = prefs.getString("image_public_key", "");
 
         if (studyId.isEmpty() || pptId.isEmpty()) {
             Log.e(TAG, "Missing study_id or ppt_id in SharedPreferences");
             return new String[]{"400", "MISSING_IDS"};
-        }
-        if (imagePubPem == null || imagePubPem.trim().isEmpty()) {
-            Log.e(TAG, "Missing image_public_key PEM in SharedPreferences");
-            return new String[]{"400", "MISSING_IMAGE_PUBKEY"};
         }
 
         // ---------- STEP 1: Create batch ----------
@@ -98,54 +100,114 @@ public class Batch {
             return new String[]{"999", "CREATE_BATCH_FAILED"};
         }
 
-        // ---------- STEP 2: Encrypt + upload each file ----------
+        // ---------- STEP 2: Upload each file ----------
         int success = 0, fail = 0, skip = 0;
         String uploadBase = baseUrl + "/api/v1/batches/" + batchId + "/screenshots";
 
-        for (File plain : files) {
-            if (plain == null || !plain.isFile()) { skip++; continue; }
+        for (File file : files) {
+            if (file == null || !file.isFile()) { skip++; continue; }
 
-            String origName = plain.getName();
-            String lower    = origName.toLowerCase(Locale.US);
-            String type     = guessTypeFromName(lower);    // "image" / "video" / "metadata"
-            String mime     = guessMimeFromName(lower);    // based on original filename
-            String capturedIso = iso8601ZuluNow();         // swap for actual capture time if available
+            String name  = file.getName();
+            String lower = name.toLowerCase(Locale.US);
 
-            // Encrypt plaintext -> .enc (nonce || ct||tag), get RSA-wrapped key
-            File encFile = new File(plain.getParentFile(), origName + ".enc");
-            Encryptor.Result encResult;
-            try {
-                encResult = Encryptor.encryptFileToEnc(plain, encFile, imagePubPem);
-                Log.d(TAG, "Encrypted " + origName + " -> " + encFile.getName()
-                        + " (aesKeyEncB64 len=" + encResult.aesKeyEncB64.length() + ")");
-            } catch (Exception e) {
-                fail++;
-                Log.e(TAG, "Encryption failed for " + origName, e);
-                continue;
+            // .meta files are sidecars, processed alongside their .enc partner
+            if (lower.endsWith(".meta")) { skip++; continue; }
+
+            if (lower.endsWith(".enc")) {
+                // --- Pre-encrypted at capture time: read .meta sidecar ---
+                String metaName = name.substring(0, name.length() - 4) + ".meta";
+                File metaFile = new File(file.getParentFile(), metaName);
+                if (!metaFile.isFile()) {
+                    Log.e(TAG, "Orphaned .enc without .meta, cannot upload: " + name);
+                    // .enc without wrapped AES key metadata is not recoverable server-side.
+                    // Remove it to avoid permanent retry loops on every upload run.
+                    boolean deleted = file.delete();
+                    Log.w(TAG, "Deleted orphan .enc " + name + ": " + deleted);
+                    fail++;
+                    continue;
+                }
+
+                String metaJson;
+                try {
+                    StringBuilder sb = new StringBuilder();
+                    try (BufferedReader br = new BufferedReader(new FileReader(metaFile))) {
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                    }
+                    metaJson = sb.toString();
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to read .meta sidecar for " + name, e);
+                    fail++;
+                    continue;
+                }
+
+                // Upload .enc directly (already encrypted, no re-encryption)
+                if (uploadEncFile(file, metaJson, pptId, studyId, bearerToken, uploadBase)) {
+                    success++;
+                    file.delete();
+                    metaFile.delete();
+                } else {
+                    fail++;
+                }
+
+            } else {
+                // --- Legacy plaintext: encrypt then upload ---
+                if (imagePubPem == null || imagePubPem.trim().isEmpty()) {
+                    Log.e(TAG, "Cannot encrypt legacy plaintext, no image_public_key");
+                    fail++;
+                    continue;
+                }
+
+                String type = guessTypeFromName(lower);
+                String mime = guessMimeFromName(lower);
+
+                File encFile = new File(file.getParentFile(), name + ".enc");
+                Encryptor.Result encResult;
+                try {
+                    encResult = Encryptor.encryptFileToEnc(file, encFile, imagePubPem);
+                } catch (Exception e) {
+                    fail++;
+                    Log.e(TAG, "Encryption failed for " + name, e);
+                    continue;
+                }
+
+                String metaJson = buildMetadataJson(
+                        pptId, mime, type, iso8601ZuluNow(),
+                        encResult.aesKeyEncB64, null, encResult.tagLenBits);
+
+                if (uploadEncFile(encFile, metaJson, pptId, studyId, bearerToken, uploadBase)) {
+                    success++;
+                    file.delete();
+                    encFile.delete();
+                } else {
+                    fail++;
+                    encFile.delete();
+                }
             }
+        }
 
-            // Metadata: nonce is prefixed, so omit gcm_nonce_b64
-            int tagLenBits      = encResult.tagLenBits; // 128
-            String aesKeyEncB64 = encResult.aesKeyEncB64;
-            String gcmNonceB64  = null;
+        String summary = "OK=" + success + " FAIL=" + fail + " SKIP=" + skip;
+        Log.i(TAG, "Batch upload summary: " + summary);
+        return new String[]{(fail == 0 ? "202" : "207"), summary};
+    }
 
-            String metaJson = buildMetadataJson(
-                    pptId, mime, type, capturedIso, aesKeyEncB64, gcmNonceB64, tagLenBits
-            );
-
+    /** Upload a single .enc file with its metadata JSON. Returns true on success. */
+    private boolean uploadEncFile(File encFile, String metaJson,
+                                  String pptId, String studyId, String bearerToken, String uploadUrl) {
+        for (int attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
             MultipartBody.Builder body = new MultipartBody.Builder().setType(MultipartBody.FORM);
             body.addFormDataPart("metadata", null, RequestBody.create(JSON_TYPE, metaJson));
             body.addFormDataPart("file", encFile.getName(), RequestBody.create(OCTET, encFile));
 
             Request.Builder rb = new Request.Builder()
-                    .url(uploadBase)
+                    .url(uploadUrl)
                     .addHeader("Accept", "application/json")
                     .addHeader("X-Participant-ID", pptId)
                     .addHeader("X-Study-ID", studyId)
                     .addHeader("X-Request-Nonce", UUID.randomUUID().toString())
                     .addHeader("X-Request-Timestamp", iso8601ZuluNow())
                     .addHeader("X-Request-Id", "and-up-" + UUID.randomUUID());
-            if (!bearerToken.isEmpty()) {
+            if (bearerToken != null && !bearerToken.isEmpty()) {
                 rb.addHeader("Authorization", "Bearer " + bearerToken);
             }
             rb.post(body.build());
@@ -156,31 +218,78 @@ public class Batch {
                 Log.d(TAG, "Upload response: " + code + " body=" + bodyStr);
 
                 if (code == 202 || (code == 409 && bodyStr.contains("duplicate_screenshot"))) {
-                    success++;
-                    // Clean up local files on success
-                    boolean delPlain = plain.delete();
-                    boolean delEnc   = encFile.delete();
-                    Log.d(TAG, "Deleted plaintext " + plain.getName() + ": " + delPlain);
-                    Log.d(TAG, "Deleted ciphertext " + encFile.getName() + ": " + delEnc);
-                } else {
-                    fail++;
-                    Log.e(TAG, "Upload failed for " + encFile.getName() + " code=" + code);
+                    return true;
+                }
+
+                if (!isRetryableStatus(code) || attempt == MAX_UPLOAD_RETRIES) {
+                    return false;
+                }
+
+                if (!sleepBeforeRetry(attempt, encFile.getName(), "http_" + code)) {
+                    Thread.currentThread().interrupt();
+                    return false;
                 }
             } catch (Exception ex) {
-                fail++;
+                boolean retryable = isRetryableException(ex);
                 Log.e(TAG, "Upload exception for " + encFile.getName() + ": " + ex.getMessage(), ex);
+
+                if (!retryable || attempt == MAX_UPLOAD_RETRIES) {
+                    return false;
+                }
+                if (!sleepBeforeRetry(attempt, encFile.getName(), "exception")) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
         }
 
-        String summary = "OK=" + success + " FAIL=" + fail + " SKIP=" + skip;
-        Log.i(TAG, "Batch upload summary: " + summary);
-        return new String[]{(fail == 0 ? "202" : "207"), summary};
+        return false;
+    }
+
+    private boolean sleepBeforeRetry(int attempt, String fileName, String reason) {
+        long delayMs = RETRY_BASE_DELAY_MS * attempt;
+        int nextAttempt = attempt + 1;
+        Log.w(TAG, "Retrying " + fileName + " in " + delayMs + "ms (attempt "
+                + nextAttempt + "/" + MAX_UPLOAD_RETRIES + ", reason=" + reason + ")");
+        try {
+            Thread.sleep(delayMs);
+            return true;
+        } catch (InterruptedException ie) {
+            Log.w(TAG, "Retry sleep interrupted for " + fileName);
+            return false;
+        }
+    }
+
+    private boolean isRetryableStatus(int code) {
+        return code == 408 || code == 429 || code >= 500;
+    }
+
+    private boolean isRetryableException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof InterruptedIOException
+                    || current instanceof ConnectException
+                    || current instanceof UnknownHostException
+                    || current instanceof SSLException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /** Create batch and return ID */
     private int createBatch(String baseUrl, String pptId, String studyId, String bearerToken) {
         final String createUrl = baseUrl + "/api/v1/batches";
-        final String json = "{\"client_id\":\"" + pptId + "\"}";
+        String json;
+        try {
+            JSONObject reqBody = new JSONObject();
+            reqBody.put("client_id", pptId);
+            json = reqBody.toString();
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to build createBatch JSON", e);
+            return -1;
+        }
 
         Request.Builder rb = new Request.Builder()
                 .url(createUrl)
@@ -204,7 +313,7 @@ public class Batch {
             // 409: duplicate batch (server returns {"error":"duplicate_batch","details":{"batch_id":...}})
             if (code == 409) {
                 try {
-                    JSONObject obj = new JSONObject(sanitizePossiblyWeirdJson(body));
+                    JSONObject obj = new JSONObject(body.trim());
                     JSONObject details = obj.optJSONObject("details");
                     if (details != null) {
                         int dupId = safeInt(details.opt("batch_id"));
@@ -213,7 +322,9 @@ public class Batch {
                             return dupId;
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to parse 409 response: " + body, e);
+                }
                 Log.e(TAG, "Create batch duplicate without usable id: " + body);
                 return -1;
             }
@@ -225,8 +336,7 @@ public class Batch {
 
             // Happy path: parse batch_id from JSON
             try {
-                String clean = sanitizePossiblyWeirdJson(body);
-                JSONObject obj = new JSONObject(clean);
+                JSONObject obj = new JSONObject(body.trim());
 
                 // Primary: batch_id
                 int batchId = safeInt(obj.opt("batch_id"));
@@ -235,12 +345,14 @@ public class Batch {
                     return batchId;
                 }
 
-                // Fallbacks: sometimes APIs include "id" only, or "details.batch_id"
+                // Fallback: "id" field
                 batchId = safeInt(obj.opt("id"));
                 if (batchId > 0) {
                     Log.i(TAG, "Created batch id=" + batchId + " (from 'id')");
                     return batchId;
                 }
+
+                // Fallback: nested "details.batch_id"
                 JSONObject details = obj.optJSONObject("details");
                 if (details != null) {
                     batchId = safeInt(details.opt("batch_id"));
@@ -250,19 +362,11 @@ public class Batch {
                     }
                 }
 
-                // Last-ditch: regex search for "batch_id": <digits>
-                Matcher m = Pattern.compile("\"batch_id\"\\s*:\\s*(\\d+)").matcher(clean);
-                if (m.find()) {
-                    batchId = Integer.parseInt(m.group(1));
-                    Log.i(TAG, "Created batch id=" + batchId + " (regex recovery)");
-                    return batchId;
-                }
-
-                Log.e(TAG, "Create batch succeeded but no batch_id present: " + clean);
+                Log.e(TAG, "Create batch succeeded but no batch_id in response: " + body);
                 return -1;
 
             } catch (JSONException je) {
-                Log.e(TAG, "JSON parse error on batch create body", je);
+                Log.e(TAG, "JSON parse error on batch create body: " + body, je);
                 return -1;
             }
 
@@ -272,44 +376,31 @@ public class Batch {
         }
     }
 
-    /** Remove any standalone numeric lines that can corrupt JSON (e.g., a lone "3017"). */
-    private static String sanitizePossiblyWeirdJson(String body) {
-        if (body == null) return "";
-        // Remove lines that are only digits (and whitespace), often inserted by proxies/loggers
-        String cleaned = body.replaceAll("(?m)^\\s*\\d+\\s*$", "");
-        // Also trim any BOM or stray control chars
-        return cleaned.trim();
-    }
-
-    /** Safely coerce a value to int (supports Integer, Long, String) else 0. */
+    /** Safely coerce a JSON value to int. Only accepts numeric types. */
     private static int safeInt(Object val) {
-        if (val == null) return 0;
         if (val instanceof Number) return ((Number) val).intValue();
-        try {
-            String s = String.valueOf(val).trim();
-            // Extract first integer token if present
-            Matcher m = Pattern.compile("(-?\\d+)").matcher(s);
-            if (m.find()) return Integer.parseInt(m.group(1));
-        } catch (Exception ignored) {}
         return 0;
     }
 
     /** Build metadata JSON string */
     private static String buildMetadataJson(String pptId, String mime, String type, String capturedIso,
                                             String aesKeyEncB64, String gcmNonceB64, int tagLenBits) {
-        StringBuilder sb = new StringBuilder(256);
-        sb.append('{');
-        sb.append("\"ppt_id\":\"").append(pptId).append("\",");
-        sb.append("\"mime\":\"").append(mime).append("\",");
-        sb.append("\"type\":\"").append(type).append("\",");
-        sb.append("\"captured_at\":\"").append(capturedIso).append("\",");
-        sb.append("\"aes_key_encrypted_b64\":\"").append(aesKeyEncB64).append("\",");
-        sb.append("\"tag_len_bits\":").append(tagLenBits);
-        if (gcmNonceB64 != null && !gcmNonceB64.isEmpty()) {
-            sb.append(",\"gcm_nonce_b64\":\"").append(gcmNonceB64).append('"');
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("ppt_id", pptId);
+            obj.put("mime", mime);
+            obj.put("type", type);
+            obj.put("captured_at", capturedIso);
+            obj.put("aes_key_encrypted_b64", aesKeyEncB64);
+            obj.put("tag_len_bits", tagLenBits);
+            if (gcmNonceB64 != null && !gcmNonceB64.isEmpty()) {
+                obj.put("gcm_nonce_b64", gcmNonceB64);
+            }
+            return obj.toString();
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to build metadata JSON", e);
+            return "{}";
         }
-        sb.append('}');
-        return sb.toString();
     }
 
     /** Determine "type" primarily from extension. */
@@ -334,16 +425,6 @@ public class Batch {
         SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
         return fmt.format(new Date());
-    }
-
-    public void deleteFiles() {
-        if (files == null) return;
-        for (File f : files) {
-            if (f != null && f.exists()) {
-                boolean deleted = f.delete();
-                Log.d(TAG, "Deleted " + f.getName() + ": " + deleted);
-            }
-        }
     }
 
     public int size() {

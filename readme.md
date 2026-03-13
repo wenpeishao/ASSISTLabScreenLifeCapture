@@ -6,7 +6,7 @@ This repository contains the Android application for the ScreenLife Capture rese
 
 **App Name:** UW ASSIST Lab ScreenLife
 **Package ID:** edu.wisc.chm.screenomics
-**Current Version:** 1.13 (Build 15)
+**Current Version:** 1.16 (Build 21)
 **Target SDK:** 35
 **Min SDK:** 29  
 
@@ -141,7 +141,13 @@ The application requires extensive permissions for data collection:
 
 ## Version Notes
 
-### v1.13 Changes (Current - Critical Release)
+### v1.16 Changes (Current Release)
+- Added an Accessibility Capture mode as an alternative to MediaProjection screen recording
+- Added an in-app setup flow that guides participants to grant Accessibility permission
+- Improved reliability on Google Pixel devices where screen capture may stop after lock/unlock
+- Kept the existing encrypted screenshot and metadata pipeline for the new capture path
+
+### v1.13 Changes (Previous - Critical Release)
 - **AGP 8.5.2 Upgrade**: Upgraded Android Gradle Plugin from 8.2.0 to 8.5.2 for native 16 KB support
 - **Gradle 8.7 Upgrade**: Updated Gradle wrapper to version 8.7
 - **Kotlin 1.9.0**: Updated Kotlin to version 1.9.0 for compatibility

@@ -1,12 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="backgroundColor">#292F36</color>
-    <color name="sunset_orange">#EE6352</color>
-    <color name="white_isabelline">#EFEFEF</color>
-    <color name="light_sea_green">#1FB299</color>
-    <color name="sea_green">#27DEBF</color>
-    <color name="colorPrimary">#008577</color>
-    <color name="colorPrimaryDark">#00574B</color>
-    <color name="colorAccent">#D81B60</color>
+
+    <!-- M3 Primary (Teal) -->
+    <color name="md_theme_primary">#006B5E</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#76F8E2</color>
+    <color name="md_theme_onPrimaryContainer">#00201B</color>
+
+    <!-- M3 Secondary -->
+    <color name="md_theme_secondary">#4B635D</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#CDE8E0</color>
+    <color name="md_theme_onSecondaryContainer">#07201B</color>
+
+    <!-- M3 Tertiary -->
+    <color name="md_theme_tertiary">#426278</color>
+    <color name="md_theme_onTertiary">#FFFFFF</color>
+    <color name="md_theme_tertiaryContainer">#C7E7FF</color>
+    <color name="md_theme_onTertiaryContainer">#001E2F</color>
+
+    <!-- M3 Error -->
+    <color name="md_theme_error">#BA1A1A</color>
+    <color name="md_theme_onError">#FFFFFF</color>
+    <color name="md_theme_errorContainer">#FFDAD6</color>
+    <color name="md_theme_onErrorContainer">#410002</color>
+
+    <!-- M3 Surface -->
+    <color name="md_theme_surface">#F8FAF8</color>
+    <color name="md_theme_onSurface">#191C1B</color>
+    <color name="md_theme_surfaceVariant">#DBE5E0</color>
+    <color name="md_theme_onSurfaceVariant">#3F4945</color>
+    <color name="md_theme_surfaceContainerLowest">#FFFFFF</color>
+    <color name="md_theme_surfaceContainerLow">#F2F5F2</color>
+    <color name="md_theme_surfaceContainer">#EDF0ED</color>
+    <color name="md_theme_surfaceContainerHigh">#E7EAE7</color>
+    <color name="md_theme_surfaceContainerHighest">#E1E3E1</color>
+
+    <!-- M3 Outline -->
+    <color name="md_theme_outline">#6F7976</color>
+    <color name="md_theme_outlineVariant">#BFC9C4</color>
+
+    <!-- M3 Inverse -->
+    <color name="md_theme_inverseSurface">#2E312F</color>
+    <color name="md_theme_inverseOnSurface">#EFF1EF</color>
+    <color name="md_theme_inversePrimary">#55DBC6</color>
+
+    <!-- Semantic colors -->
+    <color name="permission_granted">#006B5E</color>
+    <color name="permission_denied">#BA1A1A</color>
+    <color name="status_active">#006B5E</color>
+    <color name="status_inactive">#6F7976</color>
+
+    <!-- Legacy name remapping (used by Java code) -->
+    <color name="white_isabelline">#6F7976</color>
+    <color name="light_sea_green">#006B5E</color>
+    <color name="sea_green">#55DBC6</color>
+    <color name="sunset_orange">#BA1A1A</color>
+    <color name="backgroundColor">#F8FAF8</color>
+
+    <!-- Framework-required overrides -->
+    <color name="colorPrimary">@color/md_theme_primary</color>
+    <color name="colorPrimaryDark">#005048</color>
+    <color name="colorAccent">@color/md_theme_tertiary</color>
+
+    <!-- Launcher -->
     <color name="mindpulse_launcher_background">#FFFFFFFF</color>
+
 </resources>

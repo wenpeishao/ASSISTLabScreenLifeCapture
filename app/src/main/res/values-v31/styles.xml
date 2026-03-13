@@ -1,0 +1,9 @@
+<resources>
+
+    <!-- AppTheme for Android 12+ with splash screen overrides -->
+    <style name="AppTheme" parent="AppTheme.Base">
+        <item name="android:windowSplashScreenBackground">@color/md_theme_surface</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    </style>
+
+</resources>

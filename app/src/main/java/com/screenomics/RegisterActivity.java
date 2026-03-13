@@ -209,10 +209,17 @@ public class RegisterActivity extends AppCompatActivity {
             try {
                 clientPubPem = getOrCreateClientPublicKeyPem();
             } catch (Exception e) {
+                Log.e(TAG, "[FAIL] Cannot create signing key: " + e.getMessage(), e);
                 runOnUiThread(() -> {
                     continueButton.setEnabled(true);
                     continueButton.setText("Continue");
-                    Toast.makeText(this, "Keypair error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    new AlertDialog.Builder(RegisterActivity.this)
+                            .setTitle("Enrollment Failed")
+                            .setMessage("Cannot create signing key on this device. "
+                                    + "AndroidKeyStore error: " + e.getMessage()
+                                    + "\n\nPlease restart the app and try again.")
+                            .setPositiveButton("OK", null)
+                            .show();
                 });
                 return;
             }
@@ -269,6 +276,10 @@ public class RegisterActivity extends AppCompatActivity {
                 ed.putString("key", key);
                 ed.putString("hash", hash);
 
+                // enrollment_token stored in plain SharedPreferences -- accepted risk.
+                // EncryptedSharedPreferences not in project deps; token is also sent as
+                // Authorization header on every upload, so SharedPreferences is not the
+                // weakest link.
                 if (longToken) {
                     ed.putString("enrollment_token", code);
                 } else {
@@ -301,10 +312,11 @@ public class RegisterActivity extends AppCompatActivity {
         KeyStore ks = KeyStore.getInstance(ANDROID_KEYSTORE);
         ks.load(null);
 
-        // Always delete old alias to force new key with correct paddings
+        // Reuse existing key to preserve HTTP signature chain across re-enrollments
         if (ks.containsAlias(KEYSTORE_ALIAS)) {
-            Log.w(TAG, "Deleting existing key alias to regenerate with both paddings");
-            ks.deleteEntry(KEYSTORE_ALIAS);
+            Log.i(TAG, "[OK] Reusing existing RSA key from AndroidKeyStore");
+            PublicKey existingKey = ks.getCertificate(KEYSTORE_ALIAS).getPublicKey();
+            return exportPublicKeyPem(existingKey);
         }
 
         KeyPairGenerator kpg = KeyPairGenerator.getInstance(
@@ -322,20 +334,10 @@ public class RegisterActivity extends AppCompatActivity {
                 .setUserAuthenticationRequired(false)
                 .build();
 
-        try {
-            kpg.initialize(spec);
-            KeyPair kp = kpg.generateKeyPair();
-            Log.i(TAG, "✅ Generated new RSA key in AndroidKeyStore with PSS + PKCS#1 support");
-            return exportPublicKeyPem(kp.getPublic());
-        } catch (Exception ex) {
-            Log.e(TAG, "❌ AndroidKeyStore key generation failed, falling back to software key: " + ex.getMessage());
-            // Fallback: generate an in-memory software keypair
-            KeyPairGenerator softGen = KeyPairGenerator.getInstance("RSA");
-            softGen.initialize(2048);
-            KeyPair kp = softGen.generateKeyPair();
-            Log.w(TAG, "⚠️ Using in-memory software RSA key (not persisted)");
-            return exportPublicKeyPem(kp.getPublic());
-        }
+        kpg.initialize(spec);
+        KeyPair kp = kpg.generateKeyPair();
+        Log.i(TAG, "[OK] Generated new RSA key in AndroidKeyStore with PSS + PKCS#1 support");
+        return exportPublicKeyPem(kp.getPublic());
     }
 
     /** Utility to encode public key as PEM */
@@ -391,6 +393,7 @@ public class RegisterActivity extends AppCompatActivity {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Override public void onBackPressed() {}
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
         return keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event);

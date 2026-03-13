@@ -60,8 +60,7 @@ public class HttpSignatureInterceptor implements Interceptor {
         // ----- Prepare headers (reuse if already present) -----
         String dateHeader = headerOrDefault(original, HDR_DATE, httpDateNow());
 
-        byte[] body = peekBodyBytes(original);
-        String computedDigest = "SHA-256=" + base64(sha256(body));
+        String computedDigest = "SHA-256=" + base64(digestBody(original));
         String digestHeader = headerOrDefault(original, HDR_DIGEST, computedDigest);
 
         // Anti-replay headers (required by server)
@@ -191,16 +190,22 @@ public class HttpSignatureInterceptor implements Interceptor {
         return (v == null || v.isEmpty()) ? fallback : v;
     }
 
-    private static byte[] peekBodyBytes(Request req) throws IOException {
-        if (req.body() == null) return new byte[0];
-        Buffer buf = new Buffer();
-        req.body().writeTo(buf);
-        return buf.readByteArray();
-    }
-
-    private static byte[] sha256(byte[] in) throws IOException {
-        try { return MessageDigest.getInstance("SHA-256").digest(in); }
-        catch (Exception e) { throw new IOException("SHA-256 unavailable", e); }
+    /** Compute SHA-256 of the request body by streaming through MessageDigest. */
+    private static byte[] digestBody(Request req) throws IOException {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            if (req.body() == null) return md.digest();
+            Buffer buf = new Buffer();
+            req.body().writeTo(buf);
+            byte[] chunk = new byte[8192];
+            while (!buf.exhausted()) {
+                int read = buf.read(chunk);
+                if (read > 0) md.update(chunk, 0, read);
+            }
+            return md.digest();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 unavailable", e);
+        }
     }
 
     private static String base64(byte[] b) {

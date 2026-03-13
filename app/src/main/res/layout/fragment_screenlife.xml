@@ -3,308 +3,466 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white_isabelline"
+    android:background="@color/md_theme_surface"
     android:fillViewport="true">
 
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:gravity="center_horizontal"
-    android:padding="8dp">
-
-    <!-- Screen Capture Toggle -->
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Screen Capture"
-        android:textColor="#1A1A1A"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <Switch
-        android:id="@+id/switchCapture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:thumb="@drawable/switch_thumb"
-        android:thumbTextPadding="4dp"
-        android:backgroundTint="@color/light_sea_green"
-        android:buttonTint="@color/sea_green"
-        android:textColorHighlight="@color/light_sea_green"
-        android:textColorLink="@color/sea_green"
-        android:switchMinWidth="36dp"
-        android:showText="true"
-        android:textOff="Off"
-        android:textOn="On"
-        android:track="@drawable/switch_track" />
-
-    <TextView
-        android:id="@+id/captureState"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="@string/capture_state_off"
-        android:textColor="#181818"
-        android:textSize="10sp"
-        android:textStyle="bold" />
-
-        <!-- Image Stats -->
-        <TextView
-            android:id="@+id/imageNumber"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Number of Images: 0"
-            android:textColor="#1A1A1A"
-            android:textSize="12sp" />
-
-        <TextView
-            android:id="@+id/uploadNumber"
+        <!-- 1. Capture Control Card (filled) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Not Uploading"
-            android:textAlignment="center"
-            android:textColor="#212121"
-            android:textSize="12sp" />
-
-        <!-- Mobile Data Settings -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginHorizontal="12dp"
-            android:padding="16dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Network Settings"
-                android:textColor="#1A1A1A"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="@color/md_theme_surfaceContainerHigh">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Screen Capture"
+                    android:textAppearance="@style/MindPulse.Text.TitleMedium"
+                    android:textColor="@color/md_theme_onSurface" />
+
+                <Switch
+                    android:id="@+id/switchCapture"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:thumbTint="@color/switch_thumb_tint"
+                    android:trackTint="@color/switch_track_tint"
+                    android:showText="true"
+                    android:textOff="Off"
+                    android:textOn="On" />
+
+                <TextView
+                    android:id="@+id/captureState"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/capture_state_off"
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 2. Data Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Data"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/imageNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Number of Images: 0"
+                    android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                    android:textColor="@color/md_theme_onSurface" />
+
+                <TextView
+                    android:id="@+id/uploadNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Not Uploading"
+                    android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                    android:textColor="@color/md_theme_onSurfaceVariant" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 3. Network Settings Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Network Settings"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
 
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-                    <TextView
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Use Mobile Data"
+                            android:textAppearance="@style/MindPulse.Text.BodyLarge"
+                            android:textColor="@color/md_theme_onSurface" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Allow uploads when WiFi unavailable"
+                            android:textAppearance="@style/MindPulse.Text.BodySmall"
+                            android:textColor="@color/md_theme_onSurfaceVariant"
+                            android:layout_marginTop="2dp" />
+
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/mobileDataSwitch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Use Mobile Data"
-                        android:textColor="#212121"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Allow uploads when WiFi unavailable"
-                        android:textColor="#666666"
-                        android:textSize="11sp"
-                        android:layout_marginTop="2dp" />
+                        android:layout_marginStart="12dp"
+                        android:thumbTint="@color/switch_thumb_tint"
+                        android:trackTint="@color/switch_track_tint"
+                        android:showText="true"
+                        android:textOff="No"
+                        android:textOn="Yes" />
 
                 </LinearLayout>
 
-                <Switch
-                    android:id="@+id/mobileDataSwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:showText="true"
-                    android:textOff="No"
-                    android:textOn="Yes"
-                    android:thumb="@drawable/switch_thumb"
-                    android:track="@drawable/switch_track"
-                    android:thumbTextPadding="4dp"
-                    android:backgroundTint="@color/light_sea_green"
-                    android:buttonTint="@color/sea_green"
-                    android:switchMinWidth="36dp" />
-
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        </LinearLayout>
-
-        <!-- Auto upload feature removed - no longer needed -->
-
-        <!-- Permission Status Indicators -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:textColor="#1A1A1A"
-            android:textAlignment="center"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:text="Required Permissions Status" />
-
-        <LinearLayout
+        <!-- 4. Permissions Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginHorizontal="16dp"
-            android:orientation="vertical">
+            android:layout_marginBottom="12dp">
 
-            <!-- Camera Permission -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <View
-                    android:id="@+id/cameraPermissionDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/permission_dot_red" />
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Camera (QR Scanning)"
-                    android:textColor="#212121"
-                    android:textSize="11sp" />
+                    android:text="Required Permissions"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap any row to open its settings"
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Camera Permission -->
+                <LinearLayout
+                    android:id="@+id/cameraPermissionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/cameraPermissionDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Camera (QR Scanning)"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
+
+                <!-- Location Permission -->
+                <LinearLayout
+                    android:id="@+id/locationPermissionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/locationPermissionDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Location (Background)"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
+
+                <!-- Usage Access Permission -->
+                <LinearLayout
+                    android:id="@+id/usageAccessRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/usageAccessDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Usage Access (App Stats)"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
+
+                <!-- Notification Permission -->
+                <LinearLayout
+                    android:id="@+id/notificationPermissionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/notificationPermissionDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Notifications"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
+
+                <!-- Battery Optimization Permission -->
+                <LinearLayout
+                    android:id="@+id/batteryPermissionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/batteryPermissionDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Battery Optimization (Unrestricted)"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
+
+                <!-- Accessibility Capture Permission -->
+                <LinearLayout
+                    android:id="@+id/accessibilityPermissionRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingVertical="4dp">
+
+                    <View
+                        android:id="@+id/accessibilityPermissionDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Accessibility Capture"
+                        android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                        android:textColor="@color/md_theme_onSurface" />
+
+                </LinearLayout>
 
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <!-- Location Permission -->
+        <!-- 5. Accessibility Capture Card (outlined) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <View
-                    android:id="@+id/locationPermissionDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/permission_dot_red" />
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Location (Background)"
-                    android:textColor="#212121"
-                    android:textSize="11sp" />
+                    android:layout_marginBottom="8dp"
+                    android:text="Accessibility Capture"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Use Accessibility Capture instead of the regular screen recording permission."
+                    android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                    android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/accessibilityModeStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Standard screen recording is selected."
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                <Button
+                    android:id="@+id/accessibilityCaptureButton"
+                    style="@style/MindPulse.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Enable Accessibility Capture" />
 
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <!-- Usage Access Permission -->
+        <!-- 6. Actions Card (filled) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/MindPulse.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/md_theme_surfaceContainerHigh">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <View
-                    android:id="@+id/usageAccessDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/permission_dot_red" />
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Usage Access (App Stats)"
-                    android:textColor="#212121"
-                    android:textSize="11sp" />
+                    android:text="Actions"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/uploadButton"
+                    style="@style/MindPulse.Button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Upload and Clear All Files" />
+
+                <Button
+                    android:id="@+id/updateQRButton"
+                    style="@style/MindPulse.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Update QR Code" />
 
             </LinearLayout>
-
-            <!-- Notification Permission -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <View
-                    android:id="@+id/notificationPermissionDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/permission_dot_red" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Notifications"
-                    android:textColor="#212121"
-                    android:textSize="11sp" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- Settings and Upload Buttons -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="#1A1A1A"
-            android:textAlignment="center"
-            android:textSize="10sp"
-            android:text="Click below to enable missing permissions" />
-
-        <Button
-            android:id="@+id/settingsButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginHorizontal="16dp"
-            android:minHeight="40dp"
-            android:paddingHorizontal="16dp"
-            android:textSize="12sp"
-            android:text="Usage Stats Settings" />
-
-        <Button
-            android:id="@+id/uploadButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="8dp"
-            android:layout_marginHorizontal="16dp"
-            android:minHeight="40dp"
-            android:paddingHorizontal="16dp"
-            android:textSize="12sp"
-            android:text="Upload and Clear All Files" />
-
-        <Button
-            android:id="@+id/updateQRButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="12dp"
-            android:layout_marginHorizontal="16dp"
-            android:minHeight="40dp"
-            android:paddingHorizontal="16dp"
-            android:textSize="12sp"
-            android:backgroundTint="#9C27B0"
-            android:textColor="@color/white_isabelline"
-            android:text="Update QR Code" />
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 
