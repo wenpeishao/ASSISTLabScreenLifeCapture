@@ -71,6 +71,31 @@ public class DeviceStateCollector {
                 default: plugType = "none"; break;
             }
             obj.put("battery_plugged_type", plugType);
+            int temp = batteryStatus.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+            if (temp >= 0) {
+                obj.put("battery_temp_c", temp / 10.0);
+            }
+            int voltage = batteryStatus.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+            if (voltage > 0) {
+                obj.put("battery_voltage_mv", voltage);
+            }
+            int health = batteryStatus.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
+            obj.put("battery_health", health);
+        }
+        BatteryManager bm = (BatteryManager) context.getSystemService(Context.BATTERY_SERVICE);
+        if (bm != null) {
+            int currentNow = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
+            if (currentNow != Integer.MIN_VALUE) {
+                obj.put("battery_current_ua", currentNow);
+            }
+            long energyCounter = bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_ENERGY_COUNTER);
+            if (energyCounter != Long.MIN_VALUE && energyCounter > 0) {
+                obj.put("battery_energy_nwh", energyCounter);
+            }
+            int avgCurrent = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE);
+            if (avgCurrent != Integer.MIN_VALUE) {
+                obj.put("battery_current_avg_ua", avgCurrent);
+            }
         }
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         if (pm != null) {

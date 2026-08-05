@@ -6,6 +6,28 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>
     
+    <!-- SSCC production API: enforce TLS + certificate pinning.
+         Pins are the ISSUING CA chain (rotates rarely), not the leaf (rotates every renewal):
+           - InCommon RSA Server CA 2  (issuing intermediate)
+           - USERTrust RSA Certification Authority (root; backup)
+         `expiration` is a safety-valve: after this date Android stops enforcing these pins
+         (fails open to system-CA validation) so a future CA migration cannot permanently
+         block uploads. Refresh the pins and this date before it lapses.
+         To recompute a pin:
+           openssl s_client -connect mindpulse.ssc.wisc.edu:443 -servername mindpulse.ssc.wisc.edu -showcerts \
+             | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der \
+             | openssl dgst -sha256 -binary | openssl enc -base64 -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">mindpulse.ssc.wisc.edu</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+        <pin-set expiration="2027-07-08">
+            <pin digest="SHA-256">nIUvrOVzCyKOqY+U4sofEeIMk94Dt/WuMgaesi8NITk=</pin>
+            <pin digest="SHA-256">x4QzPSC810K5/cMjb05Qm4k3Bw5zBn4lTdO/nEW/Td4=</pin>
+        </pin-set>
+    </domain-config>
+
     <!-- Default configuration for all other domains -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

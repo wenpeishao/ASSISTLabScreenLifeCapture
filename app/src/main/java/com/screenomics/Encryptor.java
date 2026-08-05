@@ -93,6 +93,20 @@ public final class Encryptor {
         return new Result(outEnc, aesKeyEncB64, nonceB64);
     }
 
+    /**
+     * Legacy entry point kept only so the disabled mindpulseDev video-capture code
+     * compiles. It must never silently succeed: callers delete the plaintext source
+     * after this returns, so a no-op here would destroy the recording while logging
+     * success. Throwing keeps the original file intact (callers catch and log).
+     *
+     * @deprecated Port callers to {@link #encryptFileToEnc} before re-enabling video.
+     */
+    @Deprecated
+    public static void encryptFile(byte[] key, String inputPath, String outputPath, byte[] iv) {
+        throw new UnsupportedOperationException(
+                "Legacy encryptFile is not implemented; port to encryptFileToEnc before use");
+    }
+
     // ---- helpers ----
 
     private static SecretKey genAesKey(int bits) throws Exception {

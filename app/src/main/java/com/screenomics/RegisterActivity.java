@@ -276,14 +276,12 @@ public class RegisterActivity extends AppCompatActivity {
                 ed.putString("key", key);
                 ed.putString("hash", hash);
 
-                // enrollment_token stored in plain SharedPreferences -- accepted risk.
-                // EncryptedSharedPreferences not in project deps; token is also sent as
-                // Authorization header on every upload, so SharedPreferences is not the
-                // weakest link.
+                // enrollment_token is stored encrypted at rest via SecureStore
+                // (AndroidKeyStore AES-256-GCM); never written to plaintext prefs.
                 if (longToken) {
-                    ed.putString("enrollment_token", code);
+                    SecureStore.putSecret(getApplicationContext(), "enrollment_token", code);
                 } else {
-                    ed.remove("enrollment_token");
+                    SecureStore.removeSecret(getApplicationContext(), "enrollment_token");
                 }
 
                 // remove any legacy key name

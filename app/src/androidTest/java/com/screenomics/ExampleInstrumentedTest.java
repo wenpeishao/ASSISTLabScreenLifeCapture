@@ -22,6 +22,8 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-        assertEquals("com.screenomics", appContext.getPackageName());
+        // applicationId is edu.wisc.chm.screenomics (+ ".mindpulse" for the mindpulseDev flavor),
+        // not the "com.screenomics" namespace — assert flavor-agnostically.
+        assertTrue(appContext.getPackageName().startsWith("edu.wisc.chm.screenomics"));
     }
 }

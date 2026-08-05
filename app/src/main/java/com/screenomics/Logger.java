@@ -130,6 +130,31 @@ public class Logger {
         }
     }
 
+    /**
+     * Defense-in-depth: delete stale plaintext temp files (tmp_*.jpg / tmp_*.log) left in the
+     * files/ root if the process was killed between writing and deleting during encryption.
+     * Normally these are deleted in a finally block within milliseconds; this only catches
+     * crash-orphaned files. Call on collection-service startup.
+     */
+    public static void sweepStaleTempFiles(Context context) {
+        try {
+            File extDir = context.getApplicationContext().getExternalFilesDir(null);
+            if (extDir == null) return;
+            File[] files = extDir.listFiles((dir, name) ->
+                    name.startsWith("tmp_") && (name.endsWith(".jpg") || name.endsWith(".log")));
+            if (files == null) return;
+            long cutoff = System.currentTimeMillis() - 5 * 60 * 1000L; // older than 5 minutes
+            for (File f : files) {
+                if (f.lastModified() < cutoff) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+            }
+        } catch (Exception ignored) {
+            // best-effort cleanup; never fail the caller
+        }
+    }
+
     static boolean queueTextForUpload(
             Context context,
             String content,
@@ -191,6 +216,94 @@ public class Logger {
             if (tempLogFile.exists()) {
                 //noinspection ResultOfMethodCallIgnored
                 tempLogFile.delete();
+            }
+        }
+    }
+
+    /**
+     * Binary sibling of {@link #queueTextForUpload}: encrypt a JPEG (e.g. an OMI
+     * Glass photo received over BLE) into the same /encrypt upload queue used by
+     * screenshots. Tagged meta type="image" so the Receiver ingests it like a
+     * screenshot, plus source/orientation for provenance. The existing
+     * UploadService/Batch pipeline carries it with no changes.
+     *
+     * @param descriptor  filename component (e.g. "glass")
+     * @param source      provenance tag written to meta (e.g. "omi_glass")
+     * @param orientation image orientation byte from the device, or -1 if unknown
+     * @return true if an .enc + .meta pair was queued
+     */
+    public static boolean queueImageForUpload(
+            Context context,
+            byte[] jpeg,
+            String descriptor,
+            String source,
+            int orientation
+    ) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        String pubKeyPem = prefs.getString("image_public_key", "");
+        if (pubKeyPem == null || pubKeyPem.trim().isEmpty()) {
+            Log.w(TAG, "No image_public_key available, skipping " + descriptor + " image upload");
+            return false;
+        }
+        if (jpeg == null || jpeg.length == 0) {
+            Log.w(TAG, "Empty jpeg, skipping " + descriptor + " image upload");
+            return false;
+        }
+
+        File extDir = context.getApplicationContext().getExternalFilesDir(null);
+        if (extDir == null) {
+            Log.e(TAG, "getExternalFilesDir returned null, cannot queue " + descriptor + " image");
+            return false;
+        }
+
+        File encryptDir = new File(extDir, "encrypt");
+        if (!encryptDir.exists() && !encryptDir.mkdirs()) {
+            Log.e(TAG, "Failed to create encrypt directory for " + descriptor + " image");
+            return false;
+        }
+
+        String hashFull = prefs.getString("hash", "00000000");
+        String hash = hashFull.substring(0, Math.min(8, hashFull.length()));
+        String baseName = hash + "_" + System.currentTimeMillis() + "_" + descriptor;
+
+        File tempFile = new File(extDir, "tmp_" + UUID.randomUUID() + ".jpg");
+        try {
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile, false)) {
+                fos.write(jpeg);
+            }
+
+            File encFile = new File(encryptDir, baseName + ".enc");
+            Encryptor.Result result = Encryptor.encryptFileToEnc(tempFile, encFile, pubKeyPem);
+
+            JSONObject metaObj = new JSONObject();
+            metaObj.put("aes_key_encrypted_b64", result.aesKeyEncB64);
+            metaObj.put("tag_len_bits", result.tagLenBits);
+            metaObj.put("mime", "image/jpeg");
+            metaObj.put("type", "image");
+            metaObj.put("captured_at", utcIsoMillis().format(new Date()));
+            metaObj.put("epoch_ms", System.currentTimeMillis());
+            if (source != null && !source.isEmpty()) {
+                metaObj.put("source", source);
+            }
+            if (orientation >= 0) {
+                metaObj.put("orientation", orientation);
+            }
+
+            File metaFile = new File(encryptDir, baseName + ".meta");
+            try (FileWriter fw = new FileWriter(metaFile, false)) {
+                fw.write(metaObj.toString());
+            }
+
+            Log.i(TAG, "Queued encrypted " + descriptor + " image: " + encFile.getName());
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to queue " + descriptor + " image for upload", e);
+            return false;
+        } finally {
+            if (tempFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
             }
         }
     }

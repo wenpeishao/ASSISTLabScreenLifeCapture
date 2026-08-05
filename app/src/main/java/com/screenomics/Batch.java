@@ -86,7 +86,7 @@ public class Batch {
         String baseUrl     = prefs.getString("base_url", Constants.BASE_URL);
         String pptId       = prefs.getString("ppt_id", "");
         String studyId     = prefs.getString("study_id", "");
-        String bearerToken = prefs.getString("enrollment_token", "");
+        String bearerToken = SecureStore.getSecret(context, "enrollment_token", "");
         String imagePubPem = prefs.getString("image_public_key", "");
 
         if (studyId.isEmpty() || pptId.isEmpty()) {
