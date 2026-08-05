@@ -424,6 +424,62 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- 7. OMI Glass Card (outlined; hidden in the standard flavor at runtime) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/glassCard"
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <View
+                        android:id="@+id/glassStatusDot"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/permission_dot_red" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="OMI Glass"
+                        android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                        android:textColor="@color/md_theme_onSurface" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/glassStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Off"
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                <Button
+                    android:id="@+id/glassConnectButton"
+                    style="@style/MindPulse.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Connect OMI Glass" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- 6. Actions Card (filled) -->
         <com.google.android.material.card.MaterialCardView
             style="@style/MindPulse.Card"

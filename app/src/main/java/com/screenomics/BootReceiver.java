@@ -44,6 +44,10 @@ public class BootReceiver extends BroadcastReceiver {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean wasRecording = prefs.getBoolean("recordingState", false);
 
+        // OMI Glass collection (mindpulseDev only) runs independently of screen
+        // recording. The facade checks the pref and BLE permissions before starting.
+        GlassesFeature.ensureStartedIfEnabled(context);
+
         if (!wasRecording) {
             Log.i(TAG, "Recording was not active before reboot, nothing to restart");
             return;

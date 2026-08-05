@@ -62,6 +62,10 @@ public class AccessibilityCaptureService extends AccessibilityService {
     private static volatile boolean serviceConnected = false;
     private static volatile boolean captureActive = false;
 
+    // VLM benchmark (dev only) — static because AccessibilityService can't be bound
+    private static volatile VlmBenchmark sVlmBenchmark;
+    public static void setVlmBenchmark(VlmBenchmark benchmark) { sVlmBenchmark = benchmark; }
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
@@ -128,6 +132,14 @@ public class AccessibilityCaptureService extends AccessibilityService {
                             Bitmap finalBitmap = bitmap;
                             String foregroundApp = getForegroundApp();
                             Log.d(TAG, "Screenshot captured | foreground_app=" + foregroundApp);
+
+                            // VLM benchmark: submit a copy with context
+                            VlmBenchmark vlm = sVlmBenchmark;
+                            if (vlm != null && vlm.isRunning()) {
+                                Bitmap copy = finalBitmap.copy(Bitmap.Config.ARGB_8888, false);
+                                if (copy != null) vlm.submitFrame(copy, foregroundApp, 0, 0);
+                            }
+
                             ioExecutor.execute(() -> {
                                 try {
                                     boolean imageSaved = encryptImage(finalBitmap, "image", foregroundApp);

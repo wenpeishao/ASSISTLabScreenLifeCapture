@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
     private AlertDialog activeUpdateDialog;
     private AppUpdateManager appUpdateManager;
     private ActivityResultLauncher<String[]> locationPermissionRequest;
+    private ActivityResultLauncher<String[]> blePermissionRequest;
 
     private final InstallStateUpdatedListener installStateUpdatedListener = state -> {
         if (state.installStatus() == InstallStatus.DOWNLOADED && appUpdateManager != null) {
@@ -131,6 +132,22 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+        // Register BLE permission launcher for OMI Glass collection (mindpulseDev only)
+        blePermissionRequest = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                    boolean allGranted = !result.isEmpty();
+                    for (Boolean granted : result.values()) {
+                        if (!Boolean.TRUE.equals(granted)) allGranted = false;
+                    }
+                    if (allGranted) {
+                        GlassesFeature.start(this);
+                    } else {
+                        Log.w(TAG, "BLE permission denied; glasses collection unavailable");
+                        Toast.makeText(this, "Bluetooth permission is required to connect glasses",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+
         maybeEnableAccessibilityModeForAndroid15(prefs);
         initInAppUpdate();
 
@@ -156,7 +173,9 @@ public class MainActivity extends AppCompatActivity {
 
         infoButton.setOnClickListener(v -> {
             infoOpenCount++;
-            if (infoOpenCount == 5) {
+            // Five-tap dev entry works only in internal builds (any debug build or
+            // the mindpulseDev flavor) — never in the production Play release.
+            if (infoOpenCount == 5 && isDevToolsAllowed()) {
                 editor.putBoolean("isDev", true);
                 editor.apply();
                 devButton.setVisibility(View.VISIBLE);
@@ -306,8 +325,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean isDev = prefs.getBoolean("isDev", false);
-        if (!isDev) devButton.setVisibility(View.GONE);
+        boolean isDev = prefs.getBoolean("isDev", false) && isDevToolsAllowed();
+        devButton.setVisibility(isDev ? View.VISIBLE : View.GONE);
 
         Intent launchIntent = getIntent();
         if (launchIntent != null && launchIntent.getBooleanExtra("start_video_recording", false)) {
@@ -316,6 +335,10 @@ public class MainActivity extends AppCompatActivity {
                 viewPager.setCurrentItem(1); // Switch to MindPulse tab
             }
         }
+
+        // OMI Glass (mindpulseDev only): restart the service if it should be running
+        // but isn't. No-op when already running, so a live connection is untouched.
+        GlassesFeature.ensureStartedIfEnabled(this);
 
         checkForAppUpdate(true);
         maybeResumeInProgressUpdate();
@@ -404,6 +427,27 @@ public class MainActivity extends AppCompatActivity {
     public void stopLocationService(){
         Intent intent = new Intent(this, LocationService.class);
         stopService(intent);
+    }
+
+    /** Dev tools are for internal builds only: any debug build, or the mindpulseDev flavor. */
+    static boolean isDevToolsAllowed() {
+        return BuildConfig.DEBUG || BuildConfig.MINDPULSE_ENABLED;
+    }
+
+    // ---- OMI Glass BLE collection (mindpulseDev only; no-op in standard) ----
+
+    /** Start OMI Glass BLE collection, requesting BLE permissions first if needed. */
+    public void startGlassesService() {
+        if (!GlassesFeature.AVAILABLE) return;
+        if (!GlassesFeature.hasBlePermissions(this)) {
+            blePermissionRequest.launch(GlassesFeature.requiredRuntimePermissions());
+            return;
+        }
+        GlassesFeature.start(this);
+    }
+
+    public void stopGlassesService() {
+        GlassesFeature.stop(this);
     }
 
     public void startMediaProjectionRequest() {

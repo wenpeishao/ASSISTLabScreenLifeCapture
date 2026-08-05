@@ -61,6 +61,10 @@ public class ScreenLifeFragment extends Fragment {
     private Timer numImageRefreshTimer;
     private UploadService uploadService;
     private TextView accessibilityModeStatus;
+    private View glassCard;
+    private View glassStatusDot;
+    private TextView glassStatus;
+    private Button glassConnectButton;
     private final ExecutorService statsExecutor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean statsRefreshInFlight = new AtomicBoolean(false);
 
@@ -121,6 +125,13 @@ public class ScreenLifeFragment extends Fragment {
         // statsSettingsButton removed - each permission row opens its own settings
         accessibilityCaptureButton = view.findViewById(R.id.accessibilityCaptureButton);
         accessibilityModeStatus = view.findViewById(R.id.accessibilityModeStatus);
+        glassCard = view.findViewById(R.id.glassCard);
+        glassStatusDot = view.findViewById(R.id.glassStatusDot);
+        glassStatus = view.findViewById(R.id.glassStatus);
+        glassConnectButton = view.findViewById(R.id.glassConnectButton);
+        if (!GlassesFeature.AVAILABLE && glassCard != null) {
+            glassCard.setVisibility(View.GONE);
+        }
 
         // Permission status dots
         cameraPermissionDot = view.findViewById(R.id.cameraPermissionDot);
@@ -238,6 +249,13 @@ public class ScreenLifeFragment extends Fragment {
 
         accessibilityCaptureButton.setOnClickListener(view -> handleAccessibilityCaptureSelection());
 
+        glassConnectButton.setOnClickListener(v -> {
+            MainActivity act = (MainActivity) requireActivity();
+            if (GlassesFeature.isEnabled(requireContext())) act.stopGlassesService();
+            else act.startGlassesService();
+            v.postDelayed(this::updateGlassUi, 800);
+        });
+
         uploadButton.setOnClickListener(v -> {
             if (!InternetConnection.checkWiFiConnection(requireContext())) {
                 AlertDialog alertDialog = new AlertDialog.Builder(requireContext()).create();
@@ -336,6 +354,7 @@ public class ScreenLifeFragment extends Fragment {
         startImageRefreshTimer();
         updatePermissionStatus();
         updateAccessibilityCaptureUi();
+        updateGlassUi();
 
         // If user toggled capture ON but accessibility wasn't enabled yet, check now
         if (pendingCaptureStart) {
@@ -432,6 +451,7 @@ public class ScreenLifeFragment extends Fragment {
 
                             updatePermissionStatus();
                             updateAccessibilityCaptureUi();
+                            updateGlassUi();
                         });
                     } catch (Exception e) {
                         Log.w(TAG, "Failed to refresh file stats", e);
@@ -811,6 +831,24 @@ public class ScreenLifeFragment extends Fragment {
         } else {
             accessibilityModeStatus.setText("Accessibility Capture is selected. Finish setup in Accessibility settings.");
             accessibilityCaptureButton.setText("Finish Accessibility Setup");
+        }
+    }
+
+    private void updateGlassUi() {
+        if (!GlassesFeature.AVAILABLE) return;
+        if (getActivity() == null || glassStatus == null) return;
+        boolean enabled = GlassesFeature.isEnabled(requireContext());
+        boolean connected = GlassesFeature.isConnected();
+        updatePermissionDot(glassStatusDot, connected);
+        if (!enabled) {
+            glassStatus.setText("Off");
+            glassConnectButton.setText("Connect OMI Glass");
+        } else {
+            int batteryPct = GlassesFeature.batteryPct();
+            String batt = batteryPct >= 0 ? (batteryPct + "%") : "—";
+            glassStatus.setText((connected ? "Connected" : "Scanning…")
+                    + "  ·  photos " + GlassesFeature.photoCount() + "  ·  battery " + batt);
+            glassConnectButton.setText("Disconnect OMI Glass");
         }
     }
 

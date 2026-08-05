@@ -343,6 +343,156 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- VLM Benchmark Card (hidden in the standard flavor at runtime) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/vlmCard"
+            style="@style/MindPulse.Card.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:strokeColor="@color/md_theme_tertiary">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="VLM Benchmark"
+                    android:textAppearance="@style/MindPulse.Text.TitleSmall"
+                    android:textColor="@color/md_theme_tertiary"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Enable on-device VLM"
+                            android:textAppearance="@style/MindPulse.Text.BodyLarge"
+                            android:textColor="@color/md_theme_onSurface" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Runs inference on each captured screenshot"
+                            android:textAppearance="@style/MindPulse.Text.BodySmall"
+                            android:textColor="@color/md_theme_onSurfaceVariant" />
+
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/vlmBenchmarkSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:thumbTint="@color/switch_thumb_tint"
+                        android:trackTint="@color/switch_track_tint" />
+
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="Model path (GGUF)">
+
+                    <EditText
+                        android:id="@+id/vlmModelPathInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:textSize="12sp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:hint="mmproj path (optional, for non-unified models)">
+
+                    <EditText
+                        android:id="@+id/vlmMmprojPathInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:textSize="12sp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/vlmStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Not running"
+                    android:textAppearance="@style/MindPulse.Text.BodyMedium"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/vlmMetricsText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Last: --  Avg: --  Total: 0  Skipped: 0  Battery: --"
+                    android:textAppearance="@style/MindPulse.Text.BodySmall"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:fontFamily="monospace"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:hint="Threads">
+
+                        <EditText
+                            android:id="@+id/vlmThreadsInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:digits="0123456789"
+                            android:inputType="number"
+                            android:text="4" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <Button
+                        android:id="@+id/vlmExportLogButton"
+                        style="@style/MindPulse.Button.Outlined"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Export Log" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <Button
             android:id="@+id/disableButton"
             style="@style/MindPulse.Button.Text"

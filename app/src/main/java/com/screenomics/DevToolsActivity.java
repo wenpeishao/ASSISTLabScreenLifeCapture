@@ -1,10 +1,14 @@
 package com.screenomics;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
 import androidx.preference.PreferenceManager;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -23,16 +27,39 @@ import okhttp3.Response;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public class DevToolsActivity extends Activity {
 
     String imagesPath;
+    private VlmBenchmark vlmBenchmark;
+    private CaptureService captureService;
+    private boolean serviceBound = false;
+
+    private final ServiceConnection captureConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            captureService = ((CaptureService.LocalBinder) binder).getService();
+            serviceBound = true;
+        }
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            captureService = null;
+            serviceBound = false;
+        }
+    };
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Defense in depth: even if the isDev pref was set before this gate
+        // existed, the screen must not open in a production release build.
+        if (!MainActivity.isDevToolsAllowed()) {
+            finish();
+            return;
+        }
         setContentView(R.layout.dev_tools);
         imagesPath = getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + File.separator + "encrypt";
         Button resetButton = findViewById(R.id.clearPrefs);
@@ -166,6 +193,136 @@ public class DevToolsActivity extends Activity {
             editor.apply();
             finish();
         });
+
+        // --- VLM Benchmark (mindpulseDev only; card hidden in standard) ---
+        // Everything below this guard is dev-flavor-only setup.
+        if (!VlmBenchmark.AVAILABLE) {
+            findViewById(R.id.vlmCard).setVisibility(android.view.View.GONE);
+            return;
+        }
+        Switch vlmSwitch = findViewById(R.id.vlmBenchmarkSwitch);
+        EditText vlmModelPath = findViewById(R.id.vlmModelPathInput);
+        EditText vlmMmprojPath = findViewById(R.id.vlmMmprojPathInput);
+        EditText vlmThreadsInput = findViewById(R.id.vlmThreadsInput);
+        TextView vlmStatus = findViewById(R.id.vlmStatusText);
+        TextView vlmMetrics = findViewById(R.id.vlmMetricsText);
+        Button vlmExportLog = findViewById(R.id.vlmExportLogButton);
+
+        // Restore saved model path
+        vlmModelPath.setText(prefs.getString("vlmModelPath", ""));
+        vlmMmprojPath.setText(prefs.getString("vlmMmprojPath", ""));
+
+        // Bind to CaptureService to inject VLM benchmark
+        Intent captureIntent = new Intent(this, CaptureService.class);
+        bindService(captureIntent, captureConnection, Context.BIND_AUTO_CREATE);
+
+        vlmSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                String modelPath = vlmModelPath.getText().toString().trim();
+                if (modelPath.isEmpty()) {
+                    Toast.makeText(this, "Set model path first", Toast.LENGTH_SHORT).show();
+                    vlmSwitch.setChecked(false);
+                    return;
+                }
+                if (!new File(modelPath).exists()) {
+                    Toast.makeText(this, "Model file not found: " + modelPath, Toast.LENGTH_LONG).show();
+                    vlmSwitch.setChecked(false);
+                    return;
+                }
+
+                // Save paths
+                prefs.edit()
+                    .putString("vlmModelPath", modelPath)
+                    .putString("vlmMmprojPath", vlmMmprojPath.getText().toString().trim())
+                    .apply();
+
+                String mmproj = vlmMmprojPath.getText().toString().trim();
+                int threads = 4;
+                try { threads = Integer.parseInt(vlmThreadsInput.getText().toString()); } catch (Exception ignored) {}
+
+                vlmBenchmark = new VlmBenchmark(DevToolsActivity.this);
+                vlmBenchmark.setStatusListener(new VlmBenchmark.StatusListener() {
+                    @Override
+                    public void onStatusUpdate(String status) {
+                        vlmStatus.setText(status);
+                    }
+                    @Override
+                    public void onMetricsUpdate(double lastMs, double avgMs, int total, int skipped, float batteryDrain) {
+                        vlmMetrics.setText(String.format(Locale.US,
+                            "Last: %.0fms  Avg: %.0fms  Total: %d  Skip: %d  Bat: -%.1f%%",
+                            lastMs, avgMs, total, skipped, batteryDrain));
+                    }
+                });
+
+                vlmBenchmark.start(modelPath, mmproj.isEmpty() ? null : mmproj, threads);
+
+                // Inject into CaptureService and AccessibilityCaptureService
+                if (serviceBound && captureService != null) {
+                    captureService.setVlmBenchmark(vlmBenchmark);
+                }
+                AccessibilityCaptureService.setVlmBenchmark(vlmBenchmark);
+
+                Toast.makeText(this, "VLM benchmark started", Toast.LENGTH_SHORT).show();
+            } else {
+                if (vlmBenchmark != null) {
+                    vlmBenchmark.stop();
+                    if (serviceBound && captureService != null) {
+                        captureService.setVlmBenchmark(null);
+                    }
+                    AccessibilityCaptureService.setVlmBenchmark(null);
+                    vlmBenchmark = null;
+                }
+                vlmStatus.setText("Stopped");
+                Toast.makeText(this, "VLM benchmark stopped", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        vlmExportLog.setOnClickListener(v -> {
+            if (vlmBenchmark != null && vlmBenchmark.getLogFile() != null) {
+                String path = vlmBenchmark.getLogFile().getAbsolutePath();
+                Toast.makeText(this, "Log: " + path, Toast.LENGTH_LONG).show();
+                Log.i("VLM_DEVTOOLS", "Benchmark CSV: " + path);
+            } else {
+                Toast.makeText(this, "No active benchmark log", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Headless embedding-only benchmark trigger (dev/testing via adb am start).
+        // Example:
+        //   adb shell am start -n edu.wisc.chm.screenomics.mindpulse/com.screenomics.DevToolsActivity \
+        //     --ez run_embed_bench true \
+        //     --es model /sdcard/Android/data/.../files/models/Qwen3.5-0.8B-Q4_K_M.gguf \
+        //     --es mmproj /sdcard/Android/data/.../files/models/mmproj-Qwen3.5-0.8B-f16.gguf \
+        //     --es image /sdcard/Android/data/.../files/models/testimg.jpg \
+        //     --ei threads 6 --ei dur_ms 360000
+        Intent launchIntent = getIntent();
+        if (launchIntent != null && launchIntent.getBooleanExtra("run_embed_bench", false)) {
+            String m = launchIntent.getStringExtra("model");
+            String mm = launchIntent.getStringExtra("mmproj");
+            String img = launchIntent.getStringExtra("image");
+            int th = launchIntent.getIntExtra("threads", 4);
+            long dur = launchIntent.getIntExtra("dur_ms", 360000);
+            boolean useGpu = launchIntent.getBooleanExtra("use_gpu", false);
+            Log.i("VLM_DEVTOOLS", "Embed bench: model=" + m + " mmproj=" + mm + " image=" + img
+                    + " threads=" + th + " dur_ms=" + dur + " use_gpu=" + useGpu);
+            Toast.makeText(this, "Embedding benchmark started (see logcat EMBED_BENCH)", Toast.LENGTH_LONG).show();
+            VlmBenchmark.runEmbeddingBenchmark(getApplicationContext(), m, mm, img, th, dur, useGpu);
+        }
+
+        if (launchIntent != null && launchIntent.getBooleanExtra("run_caption_bench", false)) {
+            String m = launchIntent.getStringExtra("model");
+            String mm = launchIntent.getStringExtra("mmproj");
+            String img = launchIntent.getStringExtra("image");
+            int th = launchIntent.getIntExtra("threads", 4);
+            long dur = launchIntent.getIntExtra("dur_ms", 30000);
+            int maxTok = launchIntent.getIntExtra("max_tokens", 40);
+            String prompt = launchIntent.getStringExtra("prompt");
+            if (prompt == null) prompt = "Describe what you see in one short sentence.";
+            boolean think = launchIntent.getBooleanExtra("think", false);
+            Log.i("VLM_DEVTOOLS", "Caption bench: model=" + m + " image=" + img + " maxTok=" + maxTok + " think=" + think);
+            Toast.makeText(this, "Caption benchmark started (see logcat CAP_BENCH)", Toast.LENGTH_LONG).show();
+            VlmBenchmark.runCaptionBenchmark(getApplicationContext(), m, mm, img, th, dur, prompt, maxTok, think);
+        }
     }
 
 
@@ -177,6 +334,20 @@ public class DevToolsActivity extends Activity {
             return null;
         }
     }*/
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (serviceBound) {
+            unbindService(captureConnection);
+            serviceBound = false;
+        }
+        // The benchmark may keep running in the capture services after this screen
+        // closes, but the listener holds this Activity and its views — detach it.
+        if (vlmBenchmark != null) {
+            vlmBenchmark.setStatusListener(null);
+        }
+    }
 
     public Response canReachEndpoint(){
         OkHttpClient client = new OkHttpClient();

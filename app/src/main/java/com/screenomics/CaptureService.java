@@ -54,6 +54,7 @@ import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import android.graphics.Bitmap.Config;
 
 
 public class CaptureService extends Service {
@@ -89,6 +90,13 @@ public class CaptureService extends Service {
     private PowerManager.WakeLock mWakeLock;
     private static final String WAKE_LOCK_TAG = "MindPulse:CaptureWakeLock";
     private long lastLowStorageLogMs = 0L;
+
+    // VLM benchmark (dev only)
+    private VlmBenchmark mVlmBenchmark;
+
+    public void setVlmBenchmark(VlmBenchmark benchmark) {
+        mVlmBenchmark = benchmark;
+    }
 
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
@@ -225,6 +233,15 @@ public class CaptureService extends Service {
                 displayWidth + rowPadding / pixelStride,
                 displayHeight, Bitmap.Config.ARGB_8888);
         bitmap.copyPixelsFromBuffer(buffer);
+
+        // VLM benchmark: submit a copy before bitmap is recycled by encryptImage
+        if (mVlmBenchmark != null && mVlmBenchmark.isRunning()) {
+            Bitmap copy = bitmap.copy(Bitmap.Config.ARGB_8888, false);
+            if (copy != null) {
+                mVlmBenchmark.submitFrame(copy);
+            }
+        }
+
         encryptImage(bitmap, "image", foregroundApp);
     }
 
@@ -527,7 +544,7 @@ public class CaptureService extends Service {
 
         if (mBackgroundThread != null) {
             // Post pause image before quitSafely - quitSafely processes pending messages
-            mBackgroundHandler.post(insertPauseImage);
+            if (mBackgroundHandler != null) mBackgroundHandler.post(insertPauseImage);
             mBackgroundThread.quitSafely();
             try {
                 mBackgroundThread.join();

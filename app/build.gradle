@@ -23,6 +23,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    ndkVersion "27.2.12479018"
+
     defaultConfig {
         applicationId "edu.wisc.chm.screenomics"
         minSdkVersion 29
@@ -32,15 +35,43 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField "boolean", "MINDPULSE_ENABLED", "false"
     }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
     productFlavors {
         standard {
             dimension "mindpulse"
+            // Production flavor: no VLM native stack. CMake only builds the tiny
+            // vlm_noop placeholder (excluded from packaging below), keeping the
+            // llama.cpp checkout and NDK toolchain out of the release APK.
+            externalNativeBuild {
+                cmake {
+                    targets "vlm_noop"
+                }
+            }
         }
         mindpulseDev {
             dimension "mindpulse"
             applicationIdSuffix ".mindpulse"
             versionNameSuffix "-mindpulse"
             buildConfigField "boolean", "MINDPULSE_ENABLED", "true"
+            // On-device VLM (llama.cpp) is dev-only; arm64 test devices only.
+            // NOTE: -march is forced at compile time (bypasses ggml runtime CPU
+            // dispatch). i8mm (ARMv8.6) removed — it SIGILLs on armv8.2 cores.
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+            externalNativeBuild {
+                cmake {
+                    targets "vlm_bridge"
+                    cppFlags "-std=c++17 -O3 -march=armv8.2-a+dotprod+fp16"
+                    arguments "-DANDROID_STL=c++_shared", "-DVLM_ENABLED=ON"
+                }
+            }
         }
     }
     signingConfigs {
@@ -54,6 +85,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled true
             shrinkResources true
@@ -70,6 +104,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = false
+            // Placeholder target built by the standard flavor; never ship it.
+            excludes += "**/libvlm_noop.so"
         }
     }
 
@@ -108,6 +144,9 @@ dependencies {
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation 'androidx.activity:activity:1.8.2'
     implementation 'com.google.android.play:app-update:2.1.0'
+
+    // ML Kit OCR (on-device text recognition) - mindpulseDev only
+    mindpulseDevImplementation 'com.google.mlkit:text-recognition:16.0.1'
 
     // Firebase temporarily disabled - uncomment after getting new google-services.json
     // implementation platform('com.google.firebase:firebase-bom:30.1.0')
@@ -182,7 +221,7 @@ def zipalignOutputsTask = tasks.register("zipalignArtifacts") {
 }
 
 tasks.configureEach { task ->
-    if (task.name.startsWith("assemble") || task.name.startsWith("bundle")) {
+    if ((task.name.startsWith("assemble") || task.name.startsWith("bundle")) && !task.name.contains("Debug")) {
         task.finalizedBy(zipalignOutputsTask)
     }
 }

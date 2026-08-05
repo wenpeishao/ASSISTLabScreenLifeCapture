@@ -87,6 +87,7 @@
         <activity
             android:name=".DevToolsActivity"
             android:parentActivityName=".MainActivity"
+            android:exported="false"
             android:label="@string/title_activity_dev_tools">
         </activity>
 
