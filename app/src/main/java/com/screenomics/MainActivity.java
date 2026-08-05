@@ -515,7 +515,7 @@ public class MainActivity extends AppCompatActivity {
 
     public boolean isCaptureServiceRunning() {
         if (isUsingAccessibilityCapture()) {
-            return AccessibilityCaptureService.isCaptureRunning();
+            return A11yState.isCaptureRunning();
         }
         return captureServiceBound && captureService != null && captureService.isCapturing();
     }
@@ -532,7 +532,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        if (AccessibilityCaptureService.isServiceEnabled(this)) {
+        if (A11yState.isServiceEnabled(this)) {
             Toast.makeText(this, "MindPulse accessibility capture is running!", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -577,7 +577,7 @@ public class MainActivity extends AppCompatActivity {
 
                 .setPositiveButton("Agree and Open Settings", (dialog, which) -> {
                     try {
-                        startActivity(AccessibilityCaptureService.buildAccessibilitySettingsIntent());
+                        startActivity(A11yState.buildAccessibilitySettingsIntent());
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to open accessibility settings", e);
                         Toast.makeText(this, "Open Settings > Accessibility and enable MindPulse Accessibility Capture", Toast.LENGTH_LONG).show();

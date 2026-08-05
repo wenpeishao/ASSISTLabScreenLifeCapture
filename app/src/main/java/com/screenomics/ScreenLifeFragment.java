@@ -162,7 +162,7 @@ public class ScreenLifeFragment extends Fragment {
                 justStartedCapture = true;  // Mark that user just started it
 
                 boolean useA11y = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
-                boolean a11yReady = useA11y && AccessibilityCaptureService.isServiceEnabled(requireContext());
+                boolean a11yReady = useA11y && A11yState.isServiceEnabled(requireContext());
 
                 if (!useA11y || a11yReady) {
                     // Standard capture or accessibility already enabled
@@ -359,7 +359,7 @@ public class ScreenLifeFragment extends Fragment {
         // If user toggled capture ON but accessibility wasn't enabled yet, check now
         if (pendingCaptureStart) {
             pendingCaptureStart = false;
-            if (AccessibilityCaptureService.isServiceEnabled(requireContext())) {
+            if (A11yState.isServiceEnabled(requireContext())) {
                 Log.i("ScreenLifeFragment", "Accessibility now enabled -- confirming recordingState");
                 prefs.edit().putBoolean("recordingState", true).apply();
                 switchCapture.setChecked(true);
@@ -702,7 +702,7 @@ public class ScreenLifeFragment extends Fragment {
         // Check Accessibility Capture permission (Android 11+)
         boolean accessibilityGranted;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            accessibilityGranted = AccessibilityCaptureService.isServiceEnabled(requireContext());
+            accessibilityGranted = A11yState.isServiceEnabled(requireContext());
         } else {
             // Not applicable on Android 10, show as granted (N/A)
             accessibilityGranted = true;
@@ -798,7 +798,7 @@ public class ScreenLifeFragment extends Fragment {
 
     private void openAccessibilitySettings() {
         try {
-            startActivity(AccessibilityCaptureService.buildAccessibilitySettingsIntent());
+            startActivity(A11yState.buildAccessibilitySettingsIntent());
             Toast.makeText(requireContext(),
                     "Enable MindPulse Accessibility Capture, then return to the app.",
                     Toast.LENGTH_LONG).show();
@@ -817,7 +817,7 @@ public class ScreenLifeFragment extends Fragment {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         boolean accessibilityModeEnabled = prefs.getBoolean(PREF_USE_ACCESSIBILITY_CAPTURE, false);
-        boolean accessibilityGranted = AccessibilityCaptureService.isServiceEnabled(requireContext());
+        boolean accessibilityGranted = A11yState.isServiceEnabled(requireContext());
 
         if (!accessibilityModeEnabled) {
             accessibilityModeStatus.setText("Standard screen recording is selected.");

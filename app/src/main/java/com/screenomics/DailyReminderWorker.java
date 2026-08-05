@@ -134,7 +134,7 @@ public class DailyReminderWorker extends Worker {
         // Accessibility (only if useAccessibilityCapture is true)
         boolean useA11y = prefs.getBoolean("useAccessibilityCapture", false);
         if (useA11y && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!AccessibilityCaptureService.isServiceEnabled(ctx)) {
+            if (!A11yState.isServiceEnabled(ctx)) {
                 missing.add("Accessibility");
             }
         }

@@ -59,12 +59,8 @@ public class AccessibilityCaptureService extends AccessibilityService {
     private static final long MIN_FREE_SPACE_BYTES = 200L * 1024L * 1024L;
     private static final long LOW_STORAGE_LOG_THROTTLE_MS = 60_000L;
 
-    private static volatile boolean serviceConnected = false;
-    private static volatile boolean captureActive = false;
-
-    // VLM benchmark (dev only) — static because AccessibilityService can't be bound
-    private static volatile VlmBenchmark sVlmBenchmark;
-    public static void setVlmBenchmark(VlmBenchmark benchmark) { sVlmBenchmark = benchmark; }
+    // Status flags and the VLM hook live in A11yState so API-29-reachable code
+    // can read them without tripping NewApi lint on this @RequiresApi(R) class.
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -134,7 +130,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
                             Log.d(TAG, "Screenshot captured | foreground_app=" + foregroundApp);
 
                             // VLM benchmark: submit a copy with context
-                            VlmBenchmark vlm = sVlmBenchmark;
+                            VlmBenchmark vlm = A11yState.vlmBenchmark;
                             if (vlm != null && vlm.isRunning()) {
                                 Bitmap copy = finalBitmap.copy(Bitmap.Config.ARGB_8888, false);
                                 if (copy != null) vlm.submitFrame(copy, foregroundApp, 0, 0);
@@ -174,7 +170,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
         super.onServiceConnected();
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener);
-        serviceConnected = true;
+        A11yState.serviceConnected = true;
         updateCaptureState();
         Logger.i(getApplicationContext(), "AccessibilityCaptureService connected");
         Log.i(TAG, "Accessibility capture service connected");
@@ -191,8 +187,8 @@ public class AccessibilityCaptureService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         stopCaptureLoop();
-        serviceConnected = false;
-        captureActive = false;
+        A11yState.serviceConnected = false;
+        A11yState.captureActive = false;
         if (prefs != null) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener);
         }
@@ -203,43 +199,20 @@ public class AccessibilityCaptureService extends AccessibilityService {
     public void onDestroy() {
         super.onDestroy();
         stopCaptureLoop();
-        serviceConnected = false;
-        captureActive = false;
+        A11yState.serviceConnected = false;
+        A11yState.captureActive = false;
         if (prefs != null) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener);
         }
         ioExecutor.shutdownNow();
     }
 
-    public static boolean isServiceEnabled(Context context) {
-        AccessibilityManager accessibilityManager =
-                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
-        if (accessibilityManager == null) return false;
-        List<AccessibilityServiceInfo> enabledServices =
-                accessibilityManager.getEnabledAccessibilityServiceList(
-                        AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-                );
-        ComponentName componentName = new ComponentName(context, AccessibilityCaptureService.class);
-        String expectedId = componentName.flattenToShortString();
-        for (AccessibilityServiceInfo info : enabledServices) {
-            if (expectedId.equals(info.getId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static boolean isCaptureRunning() {
-        return serviceConnected && captureActive;
-    }
-
-    public static Intent buildAccessibilitySettingsIntent() {
-        return new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-    }
+    // isServiceEnabled / isCaptureRunning / buildAccessibilitySettingsIntent
+    // moved to A11yState (API-safe; callable from any API level without lint noise).
 
     private void updateCaptureState() {
         boolean shouldCapture = shouldCapture();
-        captureActive = shouldCapture;
+        A11yState.captureActive = shouldCapture;
         if (shouldCapture) {
             scheduleNextCapture(500L);
             UploadScheduler.ensurePeriodicUpload(getApplicationContext());

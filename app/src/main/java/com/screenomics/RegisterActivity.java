@@ -87,6 +87,13 @@ public class RegisterActivity extends AppCompatActivity {
 
         http = HttpClientProvider.get(this); // includes HttpSignatureInterceptor
 
+        // Back is intentionally a no-op: registration must complete or the app
+        // has no identity. (Replaces the deprecated onBackPressed() override.)
+        getOnBackPressedDispatcher().addCallback(this,
+                new androidx.activity.OnBackPressedCallback(true) {
+                    @Override public void handleOnBackPressed() { }
+                });
+
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> { if (uri != null) processQRImageFromGallery(uri); }
@@ -391,8 +398,6 @@ public class RegisterActivity extends AppCompatActivity {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    @Override public void onBackPressed() {}
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
         return keyCode == KeyEvent.KEYCODE_BACK || super.onKeyDown(keyCode, event);
     }

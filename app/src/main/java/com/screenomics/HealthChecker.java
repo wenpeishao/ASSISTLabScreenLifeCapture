@@ -55,7 +55,7 @@ public final class HealthChecker {
         NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
-        boolean a11yEnabled = AccessibilityCaptureService.isServiceEnabled(context);
+        boolean a11yEnabled = A11yState.isServiceEnabled(context);
 
         // Accessibility permission lost
         if (!a11yEnabled) {

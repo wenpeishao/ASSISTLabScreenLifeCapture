@@ -270,7 +270,7 @@ public class DeviceStateCollector {
         }
         try {
             obj.put("perm_accessibility_enabled",
-                    AccessibilityCaptureService.isServiceEnabled(context));
+                    A11yState.isServiceEnabled(context));
         } catch (Exception e) {
             Log.w(TAG, "accessibility check failed", e);
         }
@@ -283,7 +283,7 @@ public class DeviceStateCollector {
         obj.put("recording_state", prefs.getBoolean("recordingState", false));
         boolean useA11y = prefs.getBoolean("useAccessibilityCapture", false);
         obj.put("capture_mode", useA11y ? "accessibility" : "media_projection");
-        obj.put("a11y_capture_active", AccessibilityCaptureService.isCaptureRunning());
+        obj.put("a11y_capture_active", A11yState.isCaptureRunning());
         obj.put("a11y_last_image_ts", prefs.getLong("a11y_last_image_ts", 0));
         obj.put("a11y_last_error", prefs.getString("a11y_last_error", ""));
         obj.put("a11y_consecutive_failures", prefs.getInt("a11y_consecutive_failures", 0));

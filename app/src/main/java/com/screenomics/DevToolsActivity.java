@@ -111,7 +111,7 @@ public class DevToolsActivity extends Activity {
 
         accessibilitySettingsButton.setOnClickListener(v -> {
             try {
-                startActivity(AccessibilityCaptureService.buildAccessibilitySettingsIntent());
+                startActivity(A11yState.buildAccessibilitySettingsIntent());
             } catch (Exception e) {
                 Toast.makeText(this, "Failed to open accessibility settings", Toast.LENGTH_LONG).show();
             }
@@ -260,7 +260,7 @@ public class DevToolsActivity extends Activity {
                 if (serviceBound && captureService != null) {
                     captureService.setVlmBenchmark(vlmBenchmark);
                 }
-                AccessibilityCaptureService.setVlmBenchmark(vlmBenchmark);
+                A11yState.setVlmBenchmark(vlmBenchmark);
 
                 Toast.makeText(this, "VLM benchmark started", Toast.LENGTH_SHORT).show();
             } else {
@@ -269,7 +269,7 @@ public class DevToolsActivity extends Activity {
                     if (serviceBound && captureService != null) {
                         captureService.setVlmBenchmark(null);
                     }
-                    AccessibilityCaptureService.setVlmBenchmark(null);
+                    A11yState.setVlmBenchmark(null);
                     vlmBenchmark = null;
                 }
                 vlmStatus.setText("Stopped");
