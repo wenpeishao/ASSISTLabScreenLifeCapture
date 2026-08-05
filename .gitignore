@@ -22,3 +22,21 @@ output.json
 /gradlew
 /app/release
 .idea/
+
+# Local machine settings (contains local paths / participant hashes)
+.claude/settings.local.json
+
+# On-device VLM model weights (hundreds of MB; side-loaded to the device)
+models/
+*.gguf
+
+# Decrypted participant data / device pulls — NEVER commit (PII)
+recentlog/
+Screenshot_*.png
+
+# Device-state artifacts and local dev prefs
+tools/prefs.xml
+nul
+
+# Local correspondence / scratch notes
+email_to_garrett_dashboard.md
