@@ -220,6 +220,8 @@ public class LocationService extends Service {
             JSONObject deviceState = DeviceStateCollector.collectSnapshot(ctx);
             if (Logger.queueTextForUpload(ctx, deviceState.toString(), "devicestate", "application/json")) {
                 queued++;
+                // Keep the AutoUploadWorker heartbeat from duplicating this flush
+                DeviceStateCollector.markHeartbeatSent(ctx);
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to flush device state", e);

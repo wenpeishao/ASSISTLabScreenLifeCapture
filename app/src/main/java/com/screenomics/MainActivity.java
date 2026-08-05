@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = prefs.edit();
 
-        String key = prefs.getString("key", "");
+        String key = SecureStore.getSecret(this, "key", "");
         recordingState = prefs.getBoolean("recordingState", false);
         continueWithoutWifi = prefs.getBoolean("continueWithoutWifi", false);
         if (key.equals("")) {

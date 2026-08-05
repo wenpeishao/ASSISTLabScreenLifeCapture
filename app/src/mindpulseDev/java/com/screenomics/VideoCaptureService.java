@@ -192,7 +192,7 @@ public class VideoCaptureService extends Service implements LifecycleOwner {
         cameraExecutor.execute(() -> {
             try {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-                String keyRaw = prefs.getString("key", "");
+                String keyRaw = SecureStore.getSecret(this, "key", "");
                 byte[] key = Converter.hexStringToByteArray(keyRaw);
                 
                 File originalFile = new File(videoPath);

@@ -551,7 +551,7 @@ public class ScreenLifeFragment extends Fragment {
     private void showUpdateQRCodeDialog() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         boolean isTester = prefs.getBoolean("isTester", false);
-        String currentKey = prefs.getString("key", "");
+        String currentKey = SecureStore.getSecret(requireContext(), "key", "");
         String currentHash = prefs.getString("hash", "");
 
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
@@ -642,10 +642,10 @@ public class ScreenLifeFragment extends Fragment {
             }
             String hash = hexString.toString();
 
-            // Save to preferences
+            // Save to preferences (the key itself goes to encrypted storage)
+            SecureStore.putSecret(requireContext(), "key", key);
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
             SharedPreferences.Editor editor = prefs.edit();
-            editor.putString("key", key);
             editor.putString("hash", hash);
             editor.putBoolean("isTester", true);
             java.text.SimpleDateFormat testerTsFmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss 'UTC'", java.util.Locale.US);

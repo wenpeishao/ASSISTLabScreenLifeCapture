@@ -273,11 +273,11 @@ public class RegisterActivity extends AppCompatActivity {
                 ed.putString("study_id", studyId);
                 ed.putString("image_public_key", imagePubPem); // new key name used by Batch
                 ed.putString("base_url", RECEIVER_BASE);
-                ed.putString("key", key);
                 ed.putString("hash", hash);
 
-                // enrollment_token is stored encrypted at rest via SecureStore
-                // (AndroidKeyStore AES-256-GCM); never written to plaintext prefs.
+                // The enrollment key and token are stored encrypted at rest via
+                // SecureStore (AndroidKeyStore AES-256-GCM); never in plaintext prefs.
+                SecureStore.putSecret(getApplicationContext(), "key", key);
                 if (longToken) {
                     SecureStore.putSecret(getApplicationContext(), "enrollment_token", code);
                 } else {

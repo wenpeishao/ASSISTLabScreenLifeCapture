@@ -379,7 +379,7 @@ public class MindPulseFragment extends Fragment {
         new Thread(() -> {
             try {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
-                String keyRaw = prefs.getString("key", "");
+                String keyRaw = SecureStore.getSecret(requireContext(), "key", "");
                 byte[] key = Converter.hexStringToByteArray(keyRaw);
                 
                 File originalFile = new File(videoPath);

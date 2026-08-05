@@ -22,6 +22,12 @@ public class AutoUploadWorker extends Worker {
         // No FGS required; fully Google Play compliant.
         HealthChecker.check(getApplicationContext());
 
+        // Devicestate heartbeat, throttled to 30 min. LocationService normally
+        // covers this every 10 min, but never runs when location permission is
+        // denied -- this keeps the server-side "alive vs broken" signal flowing
+        // for every enrolled participant. Runs on the worker thread (file I/O).
+        DeviceStateCollector.maybeQueueSnapshot(getApplicationContext(), 30 * 60_000L);
+
         // Sensor buffer flushing is handled by LocationService on its own 10-min
         // cycle (flushCombinedBuffer).  Crash recovery of stale JSONL files happens
         // in LocationService.onStartCommand() via flushStaleCombinedBuffer().

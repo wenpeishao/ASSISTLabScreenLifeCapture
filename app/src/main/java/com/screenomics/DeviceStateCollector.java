@@ -35,6 +35,65 @@ public class DeviceStateCollector {
 
     private static final String TAG = "DeviceStateCollector";
 
+    private static final String PREF_LAST_HEARTBEAT_MS = "last_devicestate_upload_ms";
+    private static final String PREF_LAST_PIN_WARN_MS = "last_pin_expiry_warn_ms";
+
+    /**
+     * Heartbeat: queue a devicestate snapshot for upload unless one went out within
+     * {@code maxAgeMs}. Called from AutoUploadWorker so the heartbeat reaches the
+     * server even for participants who declined location permission (LocationService,
+     * which normally flushes devicestate every 10 minutes, never runs for them).
+     * Also raises/clears the upload-backlog participant alert from the same snapshot.
+     */
+    public static void maybeQueueSnapshot(Context context, long maxAgeMs) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        if (prefs.getString("image_public_key", "").isEmpty()) {
+            return; // not enrolled yet — nothing to report, avoid warning spam
+        }
+        long now = System.currentTimeMillis();
+        try {
+            JSONObject snapshot = null;
+            if (now - prefs.getLong(PREF_LAST_HEARTBEAT_MS, 0) >= maxAgeMs) {
+                snapshot = collectSnapshot(context);
+                if (Logger.queueTextForUpload(context, snapshot.toString(),
+                        "devicestate", "application/json")) {
+                    markHeartbeatSent(context);
+                }
+            }
+            if (snapshot != null) {
+                JSONObject storage = snapshot.optJSONObject("storage");
+                if (storage != null) {
+                    HealthChecker.notifyUploadBacklog(context,
+                            storage.optInt("pending_upload_count", 0),
+                            storage.optLong("storage_available_bytes", -1));
+                }
+            }
+            maybeWarnCertPinExpiry(context, prefs, now);
+        } catch (Exception e) {
+            Log.w(TAG, "heartbeat failed", e);
+        }
+    }
+
+    /** Stamp the heartbeat clock; LocationService calls this on its own devicestate
+     *  flush so the AutoUploadWorker heartbeat doesn't duplicate it. */
+    public static void markHeartbeatSent(Context context) {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putLong(PREF_LAST_HEARTBEAT_MS, System.currentTimeMillis()).apply();
+    }
+
+    /** The pin-set in network_security_config expires 2027-07-08 and then fails
+     *  open. Starting a month out, put a daily warning into the app log stream
+     *  (uploaded as diagnostics) so staff see it during routine monitoring. */
+    private static void maybeWarnCertPinExpiry(Context context, SharedPreferences prefs, long now) {
+        try {
+            if (java.time.LocalDate.now().isBefore(java.time.LocalDate.of(2027, 6, 8))) return;
+            if (now - prefs.getLong(PREF_LAST_PIN_WARN_MS, 0) < 24L * 3600_000L) return;
+            Logger.e(context, "TLS pin-set in network_security_config expires 2027-07-08 "
+                    + "and will FAIL OPEN — ship a release with rotated pins");
+            prefs.edit().putLong(PREF_LAST_PIN_WARN_MS, now).apply();
+        } catch (Exception ignored) {}
+    }
+
     public static JSONObject collectSnapshot(Context context) {
         JSONObject root = new JSONObject();
         try { root.put("battery", collectBattery(context)); } catch (Exception e) { Log.w(TAG, "battery", e); }

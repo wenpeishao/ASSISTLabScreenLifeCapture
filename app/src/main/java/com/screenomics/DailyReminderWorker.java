@@ -56,7 +56,7 @@ public class DailyReminderWorker extends Worker {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
 
         // Guard: skip if user not registered
-        String key = prefs.getString("key", "");
+        String key = SecureStore.getSecret(ctx, "key", "");
         if (key.isEmpty()) {
             Log.i(TAG, "User not registered, skipping daily reminder");
             return Result.success();
