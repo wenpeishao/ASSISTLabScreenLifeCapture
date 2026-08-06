@@ -1,0 +1,52 @@
+name: Android CI
+
+# Compile both flavors, run lint, and run the JVM unit test suite on every
+# push and pull request. Deliberately skips the native (llama.cpp) build and
+# instrumented tests: the standard flavor never needs the submodule, and the
+# mindpulseDev Java compile doesn't trigger CMake.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        # submodules intentionally NOT checked out (llama.cpp is dev-native only)
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Compile production (standard) flavor
+        run: ./gradlew :app:compileStandardReleaseJavaWithJavac --console=plain
+
+      - name: Compile mindpulseDev flavor (Java only)
+        run: ./gradlew :app:compileMindpulseDevDebugJavaWithJavac --console=plain
+
+      - name: Lint (standard)
+        run: ./gradlew :app:lintStandardDebug --console=plain
+
+      - name: Unit tests (both flavors)
+        run: ./gradlew :app:testStandardDebugUnitTest :app:testMindpulseDevDebugUnitTest --console=plain
+
+      - name: Upload lint and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/lint-results-*.txt
+            app/build/reports/tests/
+          retention-days: 14
