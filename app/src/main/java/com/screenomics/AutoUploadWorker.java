@@ -28,6 +28,14 @@ public class AutoUploadWorker extends Worker {
         // for every enrolled participant. Runs on the worker thread (file I/O).
         DeviceStateCollector.maybeQueueSnapshot(getApplicationContext(), 30 * 60_000L);
 
+        // Queryable compliance heartbeat, throttled to 15 min. Same facts as the
+        // snapshot above, but posted to an endpoint instead of sealed into an
+        // encrypted file -- staff need to be able to ask who has stopped
+        // collecting without decrypting anything. Scheduled by WorkManager, so
+        // it keeps reporting after the capture service has been disabled or
+        // killed, which is what makes "broken" distinguishable from "gone".
+        Heartbeat.maybeSend(getApplicationContext(), 15 * 60_000L);
+
         // Sensor buffer flushing is handled by LocationService on its own 10-min
         // cycle (flushCombinedBuffer).  Crash recovery of stale JSONL files happens
         // in LocationService.onStartCommand() via flushStaleCombinedBuffer().

@@ -28,9 +28,11 @@ public final class HealthChecker {
     static final int NOTIF_ID_UPLOAD_BACKLOG = 3003;
 
     /** Consecutive screenshot failures before alerting. Failures only accumulate
-     *  during unlocked capture attempts (the loop skips while the keyguard is up),
-     *  so overnight non-use can never trip this. ~30 = about a minute of solid
-     *  failures at the 1s retry cadence. */
+     *  while the screen is on and unlocked -- the loop skips otherwise -- so
+     *  overnight non-use cannot trip this. (That guarantee used to rest on the
+     *  keyguard alone, which left it false on a phone with no lock screen
+     *  configured; the loop now also requires an interactive display.) At the
+     *  2s failure-retry cadence, 30 is about a minute of solid failures. */
     private static final int STALL_CONSEC_FAILURES = 30;
     /** Backlog thresholds for the participant-facing upload alert. */
     private static final int BACKLOG_ALERT_COUNT = 2000;
