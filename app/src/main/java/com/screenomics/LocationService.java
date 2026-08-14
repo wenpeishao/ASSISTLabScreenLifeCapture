@@ -407,6 +407,28 @@ public class LocationService extends Service {
         }
     }
 
+    /**
+     * Whether this service may legally start at all.
+     *
+     * From Android 14 (targetSdk 34+), starting a foreground service typed
+     * {@code location} without a runtime location permission does not fail
+     * quietly -- it throws SecurityException out of the service start and kills
+     * the process.
+     *
+     * That matters far beyond location: a participant who revokes location while
+     * recording is on takes the whole app down with it, on every boot and every
+     * package update, and screen capture never restarts. Screen capture does not
+     * need location at all.
+     */
+    static boolean canStartLocationForegroundService(Context context) {
+        return ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
     // ---- Permission helpers ----
     private boolean hasFineLocation() {
         return ContextCompat.checkSelfPermission(
@@ -465,6 +487,18 @@ public class LocationService extends Service {
     @Override
     public int onStartCommand(Intent receivedIntent, int flags, int startId) {
         Log.d(TAG, "Location Service Started");
+
+        if (!canStartLocationForegroundService(this)) {
+            // Stop before startForeground rather than let the platform kill the
+            // process. Losing GPS is a degraded study; crash-looping loses the
+            // screenshots too, which is the whole study.
+            Log.w(TAG, "Location permission not granted -- not starting the location service");
+            Logger.e(getApplicationContext(),
+                    "LOCATION_FGS_SKIPPED no location permission; screen capture continues");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         createNotificationChannel();
 
         Intent notificationIntent = new Intent(this, MainActivity.class);

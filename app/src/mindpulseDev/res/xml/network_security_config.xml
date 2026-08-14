@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!--
+    Research-flavour network policy. This file REPLACES the production one for
+    mindpulseDev builds only; app/src/main/.../network_security_config.xml is
+    untouched and is what ships to participants.
+
+    The only difference is the first block: loopback may be reached in the
+    clear. That is what lets a tethered test device talk to a receiver running
+    on the workstation it is plugged into:
+
+        phone 127.0.0.1:8099  ->  [adb reverse]  ->  workstation  ->  receiver
+
+    which is the only way to exercise the real phone stack end to end. SSH is
+    filtered from the lab network to every SSCC host, so a tunnel to the test
+    instance on the receiver host is not available, and only :443 is open
+    inbound there.
+
+    Loopback is not a security hole worth trading away: adb reverse only maps a
+    port for a device physically attached over USB, and nothing on the network
+    can reach 127.0.0.1 on the phone.
+
+    The production pin-set below is kept deliberately. A dev build pointed at
+    the real receiver must behave exactly like a production build, or it proves
+    nothing about the thing we are testing.
+-->
+<network-security-config>
+    <!-- Loopback, in the clear: the tethered-testing path described above. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Identical to production: TLS + pinning on the issuing CA chain.
+         Pins are the CA chain, not the leaf, so the yearly certificate renewal
+         does not require an app release. The leaf currently expires 2026-09-25;
+         a renewal from a CA outside the USERTrust chain WOULD break every
+         installed build, so that question has to be settled before a renewal,
+         not after. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">mindpulse.ssc.wisc.edu</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+        <pin-set expiration="2027-07-08">
+            <pin digest="SHA-256">nIUvrOVzCyKOqY+U4sofEeIMk94Dt/WuMgaesi8NITk=</pin>
+            <pin digest="SHA-256">x4QzPSC810K5/cMjb05Qm4k3Bw5zBn4lTdO/nEW/Td4=</pin>
+        </pin-set>
+    </domain-config>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

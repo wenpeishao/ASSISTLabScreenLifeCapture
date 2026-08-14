@@ -60,13 +60,37 @@ import android.util.Base64;
 public class RegisterActivity extends AppCompatActivity {
     private static final String TAG = "RegisterActivity";
 
-    // Point to your Receiver base (also saved into SharedPreferences as base_url)
-    private static final String RECEIVER_BASE = "https://mindpulse.ssc.wisc.edu";
     private static final String ENROLL_PATH   = "/api/v1/enroll";
     private static final String HEALTH_PATH   = "/api/v1/health";
 
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
     private static final String KEYSTORE_ALIAS   = "mindpulse_client_key";
+
+    /**
+     * Where enrolment talks to.
+     *
+     * This used to be a second copy of the receiver URL, sitting beside
+     * {@link Constants#BASE_URL} and free to disagree with it. Two constants
+     * holding the same address is the same shape of bug that put the server and
+     * the repository out of step for months: nothing makes them move together.
+     *
+     * A debuggable build may be redirected with the {@code base_url} preference,
+     * which is what lets a tethered device enrol against a receiver running on
+     * the workstation it is plugged into. A release build ignores the preference
+     * entirely, so no stale or planted value can ever point a participant's
+     * phone somewhere else.
+     */
+    private String receiverBase() {
+        if (BuildConfig.DEBUG) {
+            String override = PreferenceManager.getDefaultSharedPreferences(this)
+                    .getString("base_url", "");
+            if (override != null && !override.trim().isEmpty()) {
+                Log.w(TAG, "debug build: enrolling against override " + override);
+                return override.trim();
+            }
+        }
+        return Constants.BASE_URL;
+    }
 
     private static final MediaType JSON_MEDIA = MediaType.parse("application/json; charset=utf-8");
     private OkHttpClient http;
@@ -206,7 +230,7 @@ public class RegisterActivity extends AppCompatActivity {
             // optional health check to warm up TLS, etc.
             try {
                 Request health = new Request.Builder()
-                        .url(RECEIVER_BASE + HEALTH_PATH)
+                        .url(receiverBase() + HEALTH_PATH)
                         .get().build();
                 http.newCall(health).execute().close();
             } catch (Exception ignored) {}
@@ -247,7 +271,7 @@ public class RegisterActivity extends AppCompatActivity {
 
             // request with optional Authorization: Bearer <token> for long tokens
             Request.Builder rb = new Request.Builder()
-                    .url(RECEIVER_BASE + ENROLL_PATH)
+                    .url(receiverBase() + ENROLL_PATH)
                     .post(RequestBody.create(body.toString(), JSON_MEDIA));
 
             if (longToken) {
@@ -279,7 +303,7 @@ public class RegisterActivity extends AppCompatActivity {
                 ed.putString("ppt_id", pptId);
                 ed.putString("study_id", studyId);
                 ed.putString("image_public_key", imagePubPem); // new key name used by Batch
-                ed.putString("base_url", RECEIVER_BASE);
+                ed.putString("base_url", receiverBase());
                 ed.putString("hash", hash);
 
                 // The enrollment key and token are stored encrypted at rest via

@@ -18,6 +18,8 @@ import android.hardware.HardwareBuffer;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Display;
@@ -59,6 +61,12 @@ public class AccessibilityCaptureService extends AccessibilityService {
     private static final long MIN_FREE_SPACE_BYTES = 200L * 1024L * 1024L;
     private static final long LOW_STORAGE_LOG_THROTTLE_MS = 60_000L;
 
+    /** Most unlocked time a single tick may credit. Guards against a stalled or
+     *  descheduled loop booking a long gap as screen-on time. */
+    private static final long MAX_TICK_CREDIT_MS = 15_000L;
+    /** Flush the counters to disk about once a minute at the normal cadence. */
+    private static final int STATS_FLUSH_EVERY_TICKS = 12;
+
     // Status flags and the VLM hook live in A11yState so API-29-reachable code
     // can read them without tripping NewApi lint on this @RequiresApi(R) class.
 
@@ -69,6 +77,12 @@ public class AccessibilityCaptureService extends AccessibilityService {
     private volatile boolean captureInFlight = false;
     private boolean captureScheduled = false;
     private long lastLowStorageLogMs = 0L;
+
+    // Unlocked-time accounting. Each tick credits the interval that just ended,
+    // scored against the screen state observed at its start.
+    private long lastTickElapsed = -1L;
+    private boolean lastTickScreenUsable = false;
+    private int ticksSinceStatsFlush = 0;
 
     private final SharedPreferences.OnSharedPreferenceChangeListener prefChangeListener =
             (sharedPreferences, key) -> {
@@ -85,8 +99,12 @@ public class AccessibilityCaptureService extends AccessibilityService {
                 updateCaptureState();
                 return;
             }
-            if (isDeviceLocked()) {
-                scheduleNextCapture(1000L);
+            boolean screenUsable = accountTick();
+            if (!screenUsable) {
+                // Nothing to capture. Poll at the normal cadence rather than
+                // every second: five times the wakeups to do nothing, in
+                // exchange for noticing an unlock up to 5s later.
+                scheduleNextCapture(CAPTURE_INTERVAL_MS);
                 return;
             }
             if (!hasEnoughStorageForCapture()) {
@@ -112,14 +130,18 @@ public class AccessibilityCaptureService extends AccessibilityService {
                                 Bitmap hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace);
                                 if (hardwareBitmap == null) {
                                     Log.e(TAG, "takeScreenshot returned a null bitmap");
-                                    finishCaptureCycle(1000L);
+                                    // Counted: an uncounted failure is one the
+                                    // stall detector and the receiver are blind to.
+                                    recordCaptureFailure("NULL_BITMAP");
+                                    finishCaptureCycle(failureRetryDelayMs());
                                     return;
                                 }
                                 bitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false);
                                 hardwareBitmap.recycle();
                             } catch (Exception e) {
                                 Log.e(TAG, "Failed to unwrap screenshot buffer", e);
-                                finishCaptureCycle(1000L);
+                                recordCaptureFailure("BUFFER_UNWRAP:" + e.getClass().getSimpleName());
+                                finishCaptureCycle(failureRetryDelayMs());
                                 return;
                             } finally {
                                 hardwareBuffer.close();
@@ -138,6 +160,9 @@ public class AccessibilityCaptureService extends AccessibilityService {
 
                             ioExecutor.execute(() -> {
                                 try {
+                                    if (isUniformFrame(finalBitmap)) {
+                                        CaptureStats.addBlankCapture();
+                                    }
                                     boolean imageSaved = encryptImage(finalBitmap, "image", foregroundApp);
                                     if (imageSaved) {
                                         recordCaptureSuccess();
@@ -158,7 +183,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
                         public void onFailure(int errorCode) {
                             Log.w(TAG, "takeScreenshot failed with error code: " + errorCode);
                             recordCaptureFailure("TAKE_SCREENSHOT_ERROR_" + errorCode);
-                            finishCaptureCycle(1000L);
+                            finishCaptureCycle(failureRetryDelayMs());
                         }
                     }
             );
@@ -171,6 +196,9 @@ public class AccessibilityCaptureService extends AccessibilityService {
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener);
         A11yState.serviceConnected = true;
+        // Before anything reopens an interval: reconcile one left open by a
+        // previous instance that was killed without onDestroy.
+        CaptureStats.onServiceStarted(getApplicationContext());
         updateCaptureState();
         Logger.i(getApplicationContext(), "AccessibilityCaptureService connected");
         Log.i(TAG, "Accessibility capture service connected");
@@ -189,6 +217,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
         stopCaptureLoop();
         A11yState.serviceConnected = false;
         A11yState.captureActive = false;
+        CaptureStats.onDisarmed(getApplicationContext());
         if (prefs != null) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener);
         }
@@ -201,6 +230,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
         stopCaptureLoop();
         A11yState.serviceConnected = false;
         A11yState.captureActive = false;
+        CaptureStats.onDisarmed(getApplicationContext());
         if (prefs != null) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener);
         }
@@ -214,10 +244,12 @@ public class AccessibilityCaptureService extends AccessibilityService {
         boolean shouldCapture = shouldCapture();
         A11yState.captureActive = shouldCapture;
         if (shouldCapture) {
+            CaptureStats.onArmed(getApplicationContext());
             scheduleNextCapture(500L);
             UploadScheduler.ensurePeriodicUpload(getApplicationContext());
         } else {
             stopCaptureLoop();
+            CaptureStats.onDisarmed(getApplicationContext());
         }
     }
 
@@ -231,6 +263,9 @@ public class AccessibilityCaptureService extends AccessibilityService {
         handler.removeCallbacks(captureRunnable);
         captureScheduled = false;
         captureInFlight = false;
+        // Drop the tick anchor so the gap while stopped is never credited.
+        lastTickElapsed = -1L;
+        lastTickScreenUsable = false;
     }
 
     private void scheduleNextCapture(long delayMs) {
@@ -254,6 +289,90 @@ public class AccessibilityCaptureService extends AccessibilityService {
         KeyguardManager keyguardManager =
                 (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
         return keyguardManager != null && keyguardManager.isKeyguardLocked();
+    }
+
+    /**
+     * Whether capture is expected right now: screen on AND unlocked.
+     *
+     * The gate used to be the keyguard alone, which is not the same thing. On a
+     * phone with no lock screen configured isKeyguardLocked() stays false with
+     * the display off, so the loop kept calling takeScreenshot() at a dark
+     * screen all night. Those failures walked a11y_consecutive_failures up to
+     * the stall threshold and woke the participant with an alert about an app
+     * that was working perfectly -- and a participant who is told capture is
+     * broken tends to switch it off, so the false alarm caused the real outage.
+     *
+     * Checking interactivity as well also gives us an honest denominator: time
+     * the screen was usable is the time capture should have produced something.
+     */
+    private boolean isScreenUsable() {
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean interactive = powerManager == null || powerManager.isInteractive();
+        return screenIsUsable(interactive, isDeviceLocked());
+    }
+
+    /** The gate itself, separated from how the two states are read. */
+    static boolean screenIsUsable(boolean interactive, boolean keyguardLocked) {
+        return interactive && !keyguardLocked;
+    }
+
+    /**
+     * Credit the interval that just elapsed and return the current screen state.
+     *
+     * The interval is scored against the state seen at its start, which is the
+     * state that was actually true during it.
+     */
+    private boolean accountTick() {
+        long now = SystemClock.elapsedRealtime();
+        boolean usable = isScreenUsable();
+        if (lastTickElapsed >= 0 && now > lastTickElapsed && lastTickScreenUsable) {
+            CaptureStats.addUnlockedMs(Math.min(now - lastTickElapsed, MAX_TICK_CREDIT_MS));
+        }
+        lastTickElapsed = now;
+        lastTickScreenUsable = usable;
+        if (++ticksSinceStatsFlush >= STATS_FLUSH_EVERY_TICKS) {
+            ticksSinceStatsFlush = 0;
+            CaptureStats.flush(getApplicationContext());
+        }
+        return usable;
+    }
+
+    /**
+     * How long to wait after a failed capture.
+     *
+     * Never below 1.5s: takeScreenshot() is rate-limited by the platform to
+     * roughly one call per second, so retrying after exactly 1s can fail with
+     * ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT -- which is itself a failure,
+     * which schedules another 1s retry. That turns one transient error into a
+     * self-sustaining streak that walks to the stall threshold on its own.
+     * Once failures are clearly not transient, drop to the normal cadence
+     * rather than burning battery retrying.
+     */
+    private long failureRetryDelayMs() {
+        int fails = prefs != null ? prefs.getInt(PREF_A11Y_CONSEC_FAIL, 0) : 0;
+        return fails >= 5 ? CAPTURE_INTERVAL_MS : 2000L;
+    }
+
+    /**
+     * True when every sampled pixel is identical, i.e. the frame is one flat
+     * colour and carries nothing.
+     *
+     * Sampled on a grid rather than scanned: this runs on every capture. A
+     * single FLAG_SECURE app legitimately produces blank frames, so this is
+     * counted and reported, never treated as an error -- but a day that is
+     * entirely blank means capture is broken in a way no error code reveals.
+     */
+    private static boolean isUniformFrame(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        if (width < 8 || height < 8) return false;
+        int first = bitmap.getPixel(width / 8, height / 8);
+        for (int i = 1; i < 8; i++) {
+            for (int j = 1; j < 8; j++) {
+                if (bitmap.getPixel(width * i / 8, height * j / 8) != first) return false;
+            }
+        }
+        return true;
     }
 
     private boolean encryptImage(Bitmap bitmap, String descriptor, String foregroundApp) {
@@ -407,6 +526,7 @@ public class AccessibilityCaptureService extends AccessibilityService {
     }
 
     private void recordCaptureSuccess() {
+        CaptureStats.addCapture();
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
         sp.edit()
                 .putLong(PREF_A11Y_LAST_IMAGE_TS, System.currentTimeMillis())

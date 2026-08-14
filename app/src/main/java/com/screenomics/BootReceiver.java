@@ -56,13 +56,23 @@ public class BootReceiver extends BroadcastReceiver {
         Log.i(TAG, "Recording was active before reboot, attempting to restart services");
         Logger.i(context, "Device rebooted, restarting services");
 
-        // Restart location service (works for both capture modes)
-        try {
-            Intent locationIntent = new Intent(context, LocationService.class);
-            context.startForegroundService(locationIntent);
-            Log.i(TAG, "LocationService restart requested");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to restart LocationService", e);
+        // Restart location service (works for both capture modes).
+        //
+        // Only when location is actually permitted. The try/catch below cannot
+        // save us otherwise: the SecurityException is thrown when the service
+        // starts, not when startForegroundService() is called, so it lands in
+        // ActivityThread and kills the process instead of being caught here.
+        if (LocationService.canStartLocationForegroundService(context)) {
+            try {
+                Intent locationIntent = new Intent(context, LocationService.class);
+                context.startForegroundService(locationIntent);
+                Log.i(TAG, "LocationService restart requested");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to restart LocationService", e);
+            }
+        } else {
+            Log.w(TAG, "Location permission revoked -- skipping LocationService, capture continues");
+            Logger.e(context, "BOOT_LOCATION_SKIPPED permission revoked; screen capture continues");
         }
 
         // For accessibility capture mode (Android 11+), the AccessibilityService
