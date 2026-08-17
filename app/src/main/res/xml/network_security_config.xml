@@ -22,9 +22,31 @@
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
+        <!-- Two CA families, deliberately, because the server is migrating from
+             InCommon to Let's Encrypt (SSCC, Aug 2026). A pin-set matches if ANY
+             validated-chain cert matches ANY pin, so carrying both makes the
+             cutover order-independent: phones on this build work before, during
+             and after the switch. Remove the InCommon pair only after the
+             receiver has moved and no supported build predates this one.
+
+             Let's Encrypt is pinned at the ROOTS, never the intermediates: LE
+             rotates intermediates (the 2026 chain is leaf -> YR1 -> ISRG Root
+             YR, cross-signed by ISRG Root X1). Three roots cover every path:
+             X1 (RSA anchor to 2035; also validates the cross-sign on devices
+             that trust only X1), X2 (ECDSA anchor to 2040, in case certbot is
+             ever switched to an ECDSA profile), and Root YR (the 2026 root, for
+             newer devices that trust it directly; on those the chain
+             terminates at YR and an X1-only pin would not match). Pins for
+             X1/X2 computed from letsencrypt.org/certs; Root YR from the live
+             chain on mirror.ssc.wisc.edu, SSCC's existing LE deployment. -->
         <pin-set expiration="2027-07-08">
+            <!-- InCommon (current cert, until the migration) -->
             <pin digest="SHA-256">nIUvrOVzCyKOqY+U4sofEeIMk94Dt/WuMgaesi8NITk=</pin>
             <pin digest="SHA-256">x4QzPSC810K5/cMjb05Qm4k3Bw5zBn4lTdO/nEW/Td4=</pin>
+            <!-- Let's Encrypt: ISRG Root X1, ISRG Root X2, ISRG Root YR -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+            <pin digest="SHA-256">fk6IOKit1ild5647BH06ujSIq5XbCgqlbYl6ANhhi88=</pin>
         </pin-set>
     </domain-config>
 
