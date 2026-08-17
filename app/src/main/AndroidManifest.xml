@@ -60,8 +60,16 @@
             android:enabled="true"
             android:exported="false"
         />
+        <!-- The class is @RequiresApi(30) while minSdk is 29, and that is
+             deliberate: an accessibility service is inert until the user
+             enables it in system settings, and every path that steers a user
+             toward enabling it is gated on SDK_INT >= R. On an API 29 device
+             this declaration is a dead entry, exactly as it has shipped since
+             v1.21. AGP 8.9's lint promoted the mismatch to an error; the
+             targetApi marker records the reasoning instead of suppressing it. -->
         <service
             android:name=".AccessibilityCaptureService"
+            tools:targetApi="r"
             android:enabled="true"
             android:exported="false"
             android:label="@string/accessibility_capture_service_label"

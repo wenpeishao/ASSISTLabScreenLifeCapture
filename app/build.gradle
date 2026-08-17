@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    compileSdk 35
+    compileSdk 36
     buildToolsVersion "36.0.0"
     flavorDimensions "mindpulse"
 
@@ -29,9 +29,9 @@ android {
     defaultConfig {
         applicationId "edu.wisc.chm.screenomics"
         minSdkVersion 29
-        targetSdkVersion 35
-        versionCode 29
-        versionName "1.23"
+        targetSdkVersion 36
+        versionCode 30
+        versionName "1.24"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField "boolean", "MINDPULSE_ENABLED", "false"
     }
